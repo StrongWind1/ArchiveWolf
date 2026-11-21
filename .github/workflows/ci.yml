@@ -81,21 +81,61 @@ jobs:
           set -euo pipefail
           cargo clippy --locked --workspace --all-targets -- --deny warnings
 
+  # Picks the legs of `test`. The default leg runs every time. The rar-13 leg (`make
+  # test-rar-13`: the RAR 1.3 key searches too slow for the default run, measured after the
+  # release build at three and a half minutes on 16 CPUs and nine on 4) runs only when a file
+  # it builds with or tests changed. The changed files come from the API, so this job needs no
+  # checkout. A manual run, a new branch, a push of 300 files or more, or a failed lookup runs
+  # every leg.
+  scope:
+    name: scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.legs.outputs.matrix }}
+    steps:
+      - name: Choose the test legs
+        id: legs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          rar13='^(src/|crates/|build\.rs$|Cargo\.(toml|lock)$|rust-toolchain\.toml$|Makefile$|\.cargo/|\.config/nextest\.toml$|\.github/workflows/ci\.yml$|tests/rar_13_attack_test\.rs$|tests/support/|tests/fixtures/(rar-13|unencrypted)/)'
+          files=""
+          case "${EVENT}" in
+            push)
+              if [[ -n "${BEFORE}" && "${BEFORE}" != 0000000000000000000000000000000000000000 ]]; then
+                files=$(gh api "repos/${REPO}/compare/${BEFORE}...${AFTER}" \
+                  --jq 'if (.files | length) < 300 then .files[].filename else empty end' || true)
+              fi
+              ;;
+            pull_request)
+              files=$(gh api --paginate "repos/${REPO}/pulls/${PR}/files" --jq '.[].filename' || true)
+              ;;
+          esac
+          # Markdown never changes what the searches build or find, even inside src/ or crates/.
+          code=$(grep -vE '\.md$' <<< "${files}" || true)
+          legs='{"suite":"default","timeout-minutes":30}'
+          if [[ -z "${files}" ]] || grep -qE "${rar13}" <<< "${code}"; then
+            legs="${legs},"'{"suite":"rar-13","timeout-minutes":45}'
+          else
+            echo "No file the RAR 1.3 key searches build with or test changed: rar-13 is skipped."
+          fi
+          echo "matrix={\"include\":[${legs}]}" >> "${GITHUB_OUTPUT}"
+
   test:
     name: test (${{ matrix.suite }})
+    needs: scope
     runs-on: ubuntu-latest
     timeout-minutes: ${{ matrix.timeout-minutes }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # Every test that is not marked #[ignore].
-          - suite: default
-            timeout-minutes: 30
-          # `make test-rar-13`: the RAR 1.3 key searches that are too slow for the default run.
-          # Measured after the release build: three and a half minutes on 16 CPUs, nine on 4.
-          - suite: rar-13
-            timeout-minutes: 45
+      matrix: ${{ fromJSON(needs.scope.outputs.matrix) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
