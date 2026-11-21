@@ -7,6 +7,10 @@
 //! so the first byte of every header in the archive is the first of its ten bytes as the
 //! generator gave it. The first header bytes of an archive are therefore every tenth output
 //! of one sequence, and a seed that gives them all is the seed.
+//!
+//! The `rand()` of Cygwin, and of MSYS2 which is made of it, gives the same values for every
+//! seed: the `zip.exe` of both was measured to write headers that this generator gives, from
+//! the time exclusive-or the process number that Cygwin counts for itself.
 
 use std::ops::Range;
 
@@ -473,6 +477,30 @@ pub(crate) mod tests {
         assert_eq!(NINE_SEED, NINE_TIME ^ NINE_PROCESS);
         const { assert!(NINE_PROCESS < 1 << WINDOW_BITS) };
         assert_eq!(window_of(NINE_SEED), window_of(NINE_TIME));
+    }
+
+    /// The fixture `gen_infozip_cygwin.zip`: six entries written by the `zip.exe` 3.0 of
+    /// Cygwin on Windows Server 2022, under the password `zip-cygwin-headers`.
+    pub(crate) const CYGWIN_HEADERS: [[u8; 12]; 6] = [
+        [0x5b, 0xc2, 0xbb, 0x84, 0x98, 0xca, 0x13, 0x5c, 0x96, 0xfd, 0xc5, 0xe2],
+        [0xd6, 0xaf, 0xb3, 0xbe, 0x2b, 0xc2, 0x0f, 0x4e, 0x38, 0xc8, 0xb7, 0x0d],
+        [0x38, 0x25, 0x26, 0x43, 0x55, 0x80, 0xdf, 0x08, 0x8a, 0x54, 0x17, 0x8e],
+        [0xfa, 0x5d, 0x25, 0x7c, 0xe2, 0x4c, 0x3a, 0x8f, 0x51, 0xbe, 0x5f, 0x91],
+        [0xf5, 0x59, 0x8d, 0x42, 0xe7, 0xa2, 0xea, 0xe0, 0x79, 0x80, 0xbe, 0xdd],
+        [0x01, 0xcf, 0x6c, 0x8f, 0x97, 0x49, 0x31, 0xe4, 0x76, 0xef, 0x7f, 0x21],
+    ];
+
+    #[test]
+    fn the_zip_of_cygwin_draws_from_the_same_generator() {
+        // the second the program that started it wrote down, and a process number of Cygwin
+        let (time, process) = (1_795_282_905_u32, 1883_u32);
+        let seed = time ^ process;
+        let first: Vec<u8> = CYGWIN_HEADERS.iter().map(|header| header[0]).collect();
+        assert!(fits(seed, &first));
+        let keys = archivewolf_zip_crypto::Keys::from_password(b"zip-cygwin-headers");
+        for (random, header) in header_bytes(seed, CYGWIN_HEADERS.len()).iter().zip(&CYGWIN_HEADERS) {
+            assert!(crate::attack::zip_crypto::seed::infozip::fits(keys, random, header), "{header:02x?}");
+        }
     }
 
     /// The search against the generator itself, seed by seed, where the seed as glibc

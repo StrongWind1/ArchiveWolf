@@ -31,6 +31,7 @@ use super::search::Found;
 use super::search::Search;
 use super::seed;
 use super::seed::Generator as _;
+use super::seed::borland;
 use super::seed::bsd;
 use super::seed::clocked;
 use super::seed::dotnet;
@@ -40,6 +41,7 @@ use super::seed::msvcrt;
 use super::seed::musl;
 use super::seed::netfx;
 use super::seed::stay;
+use crate::formats::zip::encryption::FLAG_DATA_DESCRIPTOR;
 use crate::formats::zip::known::claim::Certainty;
 use crate::formats::zip::known::claim::Form;
 use crate::formats::zip::known::claim::Origin;
@@ -95,6 +97,16 @@ const TREE_ENTRIES: usize = 96;
 /// The fewest groups for which a clock is looked for through all the time there is, and
 /// not only around the times the archive itself names.
 const GROUPS_FOR_ALL: usize = 5;
+
+/// The passes over a clock of few values: how many steps of it behind the first group the
+/// other groups are looked for, the fewest groups the pass is run with, and what it is in the
+/// words of the progress. A group that may lie anywhere has four headers that fit the first
+/// byte, and a candidate key agrees with one of them more often than not: a dozen groups and
+/// more make up for that, and three do when they lie close together.
+const FEW_VALUES_PASSES: [(u64, usize, &str); 4] = [(32, FEW_VALUES_GROUPS, "entries within 32 ms of the first"), (128, 4, "entries within 128 ms of the first"), (512, 7, "entries within half a second of the first"), (u64::MAX, 13, "entries at any time")];
+
+/// The fewest groups any of those passes is run with.
+const FEW_VALUES_GROUPS: usize = 3;
 
 /// What the search for a clock was measured to take when it finds none, in seconds, for an
 /// archive of six groups whose entries are a few years old: every pass of every writer. With
@@ -173,11 +185,15 @@ enum Library {
     Musl,
     /// The C runtime of Windows.
     Windows,
+    /// The C runtime of Borland, which the oldest versions of WinRAR were built with.
+    Borland,
+    /// The same, with each byte put through the table of the CRC-32 as WinRAR 3.20 does.
+    BorlandMixed,
 }
 
 impl Library {
     /// Every library, in the order they are searched.
-    const ALL: [Self; 4] = [Self::Glibc, Self::MacOs, Self::Musl, Self::Windows];
+    const ALL: [Self; 6] = [Self::Glibc, Self::MacOs, Self::Musl, Self::Windows, Self::Borland, Self::BorlandMixed];
 
     const fn label(self) -> &'static str {
         match self {
@@ -185,6 +201,8 @@ impl Library {
             Self::MacOs => "macOS",
             Self::Musl => "musl",
             Self::Windows => "Windows",
+            Self::Borland => "Borland",
+            Self::BorlandMixed => "Borland as WinRAR 3.20 reads it",
         }
     }
 
@@ -196,10 +214,14 @@ impl Library {
             (Self::MacOs, 0) => seed::seeds::<bsd::Rand>(first, control),
             (Self::Musl, 0) => seed::seeds::<musl::Rand>(first, control),
             (Self::Windows, 0) => seed::seeds::<msvcrt::Rand>(first, control),
+            (Self::Borland, 0) => seed::seeds::<borland::Rand>(first, control),
+            (Self::BorlandMixed, 0) => seed::seeds::<borland::Mixed>(first, control),
             (Self::Glibc, _) => glibc::seeds_with_gaps(first, spare, control),
             (Self::MacOs, _) => seed::seeds_with_gaps::<bsd::Rand>(first, spare, control),
             (Self::Musl, _) => seed::seeds_with_gaps::<musl::Rand>(first, spare, control),
             (Self::Windows, _) => seed::seeds_with_gaps::<msvcrt::Rand>(first, spare, control),
+            (Self::Borland, _) => seed::seeds_with_gaps::<borland::Rand>(first, spare, control),
+            (Self::BorlandMixed, _) => seed::seeds_with_gaps::<borland::Mixed>(first, spare, control),
         }
     }
 
@@ -211,6 +233,8 @@ impl Library {
             Self::MacOs => seed::drawn::<bsd::Rand>(seed, count),
             Self::Musl => seed::drawn::<musl::Rand>(seed, count),
             Self::Windows => seed::drawn::<msvcrt::Rand>(seed, count),
+            Self::Borland => seed::drawn::<borland::Rand>(seed, count),
+            Self::BorlandMixed => seed::drawn::<borland::Mixed>(seed, count),
         };
         seed::places(&headers, first, spare)
     }
@@ -222,6 +246,8 @@ impl Library {
             Self::MacOs => bsd::Rand::stream_of(seed),
             Self::Musl => musl::Rand::stream_of(seed),
             Self::Windows => msvcrt::Rand::stream_of(seed),
+            Self::Borland => borland::Rand::stream_of(seed),
+            Self::BorlandMixed => borland::Mixed::stream_of(seed),
         }
     }
 
@@ -232,6 +258,8 @@ impl Library {
             Self::MacOs => seed::header_bytes::<bsd::Rand>(seed, entries),
             Self::Musl => seed::header_bytes::<musl::Rand>(seed, entries),
             Self::Windows => seed::header_bytes::<msvcrt::Rand>(seed, entries),
+            Self::Borland => seed::header_bytes::<borland::Rand>(seed, entries),
+            Self::BorlandMixed => seed::header_bytes::<borland::Mixed>(seed, entries),
         }
     }
 }
@@ -341,7 +369,7 @@ pub(crate) fn attempts(pool: &Pool, limits: &Limits) -> Vec<Attempt> {
         let shared = headers.windows(2).any(|pair| pair.first().and_then(|header| header.first_chunk::<10>()) == pair.last().and_then(|header| header.first_chunk::<10>()));
         let mut paths: Vec<(Special, Path, Certainty, f64, f64, String)> = Vec::new();
         match archive.writer {
-            Writer::InfoZip if order.len() >= INFO_ZIP_ENTRIES => {
+            Writer::InfoZip | Writer::WinRar if order.len() >= INFO_ZIP_ENTRIES => {
                 let seconds = if order.len() == INFO_ZIP_ENTRIES { INFO_ZIP_FOUR_SECONDS } else { INFO_ZIP_SECONDS };
                 paths.push((Special::InfoZip { archive: number }, Path::Header, Certainty::Likely, 0.8, seconds, format!("encryption headers of {} entries of one run: the seed of their generator, then the keys from the headers", grouped(order.len() as u64))));
             },
@@ -370,6 +398,21 @@ pub(crate) fn attempts(pool: &Pool, limits: &Limits) -> Vec<Attempt> {
                 chance,
                 CLOCKED_SECONDS,
                 format!("encryption headers of {} entries, encrypted once: whether a clock seeded their generator for each entry, as the ZipArchive library and zip utils do, then the keys from the headers", grouped(order.len() as u64)),
+            ));
+        }
+        // a library of .NET that makes a generator for every entry and leaves no mark of its
+        // own in the directory, as Aspose.ZIP does: the question of SharpZipLib and DotNetZip,
+        // asked as a guess
+        if archive.writer == Writer::Unknown && order.len() >= DOT_NET_ENTRIES && header_mark(&headers) != Some(HeaderMark::Constant) {
+            let seconds = DOT_NET_SECONDS + expected_candidates(12) / MEASURED_RATE;
+            let chance = if shared { 0.3 } else { 0.05 };
+            paths.push((
+                Special::DotNet { archive: number },
+                Path::HeaderOnce,
+                Certainty::Guess,
+                chance,
+                seconds,
+                format!("encryption headers of {} entries, encrypted once: whether a library of .NET made a generator for each entry, as Aspose.ZIP does, then a run of twelve", grouped(order.len() as u64)),
             ));
         }
         for (special, path, certainty, chance, seconds, what) in paths {
@@ -443,7 +486,7 @@ impl Run<'_> {
         let modified = self.pool.archives.get(archive).and_then(|archive| std::fs::metadata(&archive.path).ok()?.modified().ok()).and_then(since_epoch);
         let now = since_epoch(std::time::SystemTime::now()).unwrap_or(u64::MAX / 2);
         let mut unproved = Vec::new();
-        let mut one_group = false;
+        let (mut one_group, mut few_groups) = (false, false);
         for writer in clocked::Writer::ALL {
             // the groups of entries with one header, as far as the writer draws it
             let mut groups: Vec<Vec<usize>> = Vec::new();
@@ -459,9 +502,52 @@ impl Run<'_> {
                 one_group = true;
                 continue;
             }
+            // a clock of few values: every one of them is tried, and nothing is searched for.
+            // Entries that were written shortly after the first are asked for before those
+            // at any time of the second, which say less and take more groups to tell
+            if let Some(values) = writer.values() {
+                // the library of ComponentOne names version 4.5 in the directory and writes a
+                // data descriptor behind every encrypted entry: an archive without those marks
+                // is not asked, since each pass costs a search of its own for every value
+                if !order.iter().filter_map(|&index| entry(index)).all(|entry| entry.made_by == 45 && entry.flags & FLAG_DATA_DESCRIPTOR != 0) {
+                    continue;
+                }
+                if groups.len() < FEW_VALUES_GROUPS {
+                    few_groups = true;
+                }
+                for (within, needed, what) in FEW_VALUES_PASSES {
+                    if groups.len() < needed {
+                        continue;
+                    }
+                    let ended = self.counted(&format!("clock search, {}, {what}", writer.label()), values, |control| self.every_clock(writer, &groups, values, within.min(values - 1), control));
+                    unproved.extend(ended.unproved);
+                    if let Some((found, clock)) = ended.proved {
+                        self.voice.say(&format!(
+                            "      the archive was written by {}, which seeds its generator from the millisecond of the clock for every entry: its first entry was written at millisecond {clock} of a second. Each of the {} groups of entries that were written within one millisecond has one of a thousand headers, and the headers together left the search {} of its candidates",
+                            writer.label(),
+                            grouped(groups.len() as u64),
+                            grouped(ended.candidates)
+                        ));
+                        return (Some(found), unproved);
+                    }
+                    if self.stop.load(Ordering::Relaxed) {
+                        return (None, unproved);
+                    }
+                }
+                continue;
+            }
             let headers: Vec<[u8; 12]> = groups.iter().filter_map(|group| group.first()).filter_map(|&index| self.pool.targets.get(index)).map(|target| target.header).collect();
             for pass in passes(writer, groups.len(), newest, modified, now) {
                 let total = pass.clocks.end - pass.clocks.start;
+                // what a pass leaves when the writer is another: each group behind the first is
+                // at one of the steps the gap allows, and fits one time in 256. A pass that is
+                // bound to leave more answers than are put to the keys is not run
+                let fitting = f64::from(u32::try_from(pass.gap).unwrap_or(u32::MAX)) / 256.0;
+                let expected = (1..groups.len()).fold(f64::from(u32::try_from(total).unwrap_or(u32::MAX)), |left, _| left * fitting);
+                if expected > f64::from(u32::try_from(ANSWERS_MAX).unwrap_or(u32::MAX)) {
+                    self.voice.most(&format!("      {}, {}: not searched, the {} groups of entries say too little of so many clocks", writer.label(), pass.what, grouped(groups.len() as u64)));
+                    continue;
+                }
                 let ended = self.counted(&format!("clock search, {}, {}", writer.label(), pass.what), total, |control| self.clocked_pass(writer, &groups, &headers, &pass, control));
                 unproved.extend(ended.unproved);
                 if let Some((found, clock)) = ended.proved {
@@ -490,8 +576,58 @@ impl Run<'_> {
         if one_group {
             self.voice.say("      all entries have one header for some writers that seed from a clock: they were written within one step of it, and two steps are needed to find it by");
         }
-        self.voice.say("      no clock of the ZipArchive library or of zip utils gives the headers: the archive was not written by one of them, or at another time than the times it names");
+        if few_groups {
+            self.voice.say(&format!("      the entries were written within fewer than {FEW_VALUES_GROUPS} milliseconds that differ: too few for the zip library of ComponentOne, whose thousand headers are told apart by the headers of the other entries"));
+        }
+        self.voice.say("      no clock of the ZipArchive library, of the zip library of ComponentOne or of zip utils gives the headers: the archive was not written by one of them, or at another time than the times it names");
         (None, unproved)
+    }
+
+    /// A clock of few values: each of them at the first group, and against it every value at
+    /// each other group that gives the same first byte of the stream, which all headers share.
+    /// The search for the keys runs on the header of the first group over the candidates that
+    /// one header of every other group agrees with: for a wrong value none is left.
+    ///
+    /// `within` is how many steps of the clock behind the first group the others are looked
+    /// for: all of them, when it is one less than the clock has values.
+    fn every_clock(&self, writer: clocked::Writer, groups: &[Vec<usize>], values: u64, within: u64, control: seed::Control<'_>) -> ClockedEnd {
+        let mut end = ClockedEnd { proved: None, unproved: Vec::new(), candidates: 0, too_many: false };
+        // the first entry of each group: its place in the pool, its header and its time
+        let firsts: Vec<(usize, [u8; 12], u16)> = groups.iter().filter_map(|group| group.first()).filter_map(|&index| self.pool.targets.get(index).map(|target| (index, target.header, target.entry.last_mod_time))).take(clocked::MAX_GROUPS).collect();
+        let Some((&(index, written, time), others)) = firsts.split_first() else { return end };
+        let first_byte = |header: &[u8]| header.first().copied().unwrap_or_default();
+        // the first byte the generator gives at every value
+        let firsts_of: Vec<u8> = (0..values).map(|clock| first_byte(&writer.plain(clock))).collect();
+        for clock in 0..values {
+            if self.stop.load(Ordering::Relaxed) {
+                return end;
+            }
+            let _ = control.done.fetch_add(1, Ordering::Relaxed);
+            let known = writer.header(clock, time);
+            let stream = first_byte(&known) ^ first_byte(&written);
+            let alternatives: Vec<Vec<([u8; 12], [u8; 12])>> =
+                others.iter().map(|&(_, other, other_time)| (0..values).zip(&firsts_of).filter(|(value, byte)| (1..=within).contains(&((value + values - clock) % values)) && **byte ^ first_byte(&other) == stream).map(|(value, _)| (writer.header(value, other_time), other)).collect()).collect();
+            if alternatives.iter().any(Vec::is_empty) {
+                continue;
+            }
+            let Some(mut search) = Search::new(&self.pool, index, &Form::bytes(-12, &known), -12, &known, 1) else { continue };
+            let tree = clocked::Tree::of_alternatives((known, written), &alternatives);
+            let at = search.index();
+            search.keep_only(self.speed.threads, |candidate| tree.allows(candidate, at));
+            if search.candidates() == 0 {
+                continue;
+            }
+            let done = AtomicU64::new(0);
+            let keys = super::search::Control { kernel: self.speed.kernel, threads: self.speed.threads, stop: &self.stop, done: &done, short_password: true };
+            let outcome = search.run(&keys, 0, search.candidates());
+            end.unproved.extend(outcome.unproved);
+            if let Some(found) = outcome.proved {
+                end.proved = Some((found, clock));
+                end.candidates = search.candidates() as u64;
+                return end;
+            }
+        }
+        end
     }
 
     /// One pass of the search for a clock: block by block, and every answer of a block put to
@@ -651,7 +787,7 @@ impl Run<'_> {
         }
         if !self.stop.load(Ordering::Relaxed) {
             if tried.is_empty() {
-                self.voice.say("      no seed of the generator of glibc, of macOS, of musl or of Windows gives the first byte of every header: the archive was not written in one run by a zip that was built against one of them");
+                self.voice.say("      no seed of the generator of glibc, of macOS, of musl, of Windows or of Borland gives the first byte of every header: the archive was not written in one run by a program that fills its headers as zip does from one of them");
             } else if unproved.is_empty() {
                 self.voice.say("      the headers give no keys: they were not all encrypted under one password in one run");
             }
@@ -777,16 +913,23 @@ mod tests {
     fn a_writer_that_is_not_known_is_asked_whether_a_clock_seeded_it() {
         let asked = |fixture: &str, limits: &Limits| -> Vec<(Option<Special>, Path, Certainty)> { attempts(&pool(fixture), limits).iter().map(|attempt| (attempt.special, attempt.path, attempt.certainty)).collect() };
         let (info_zip, clocked) = ((Some(Special::InfoZip { archive: 0 }), Path::Header, Certainty::Guess), (Some(Special::Clocked { archive: 0 }), Path::HeaderOnce, Certainty::Guess));
+        // and whether a library of .NET made a generator for each entry, which leaves no mark either
+        let dot_net = (Some(Special::DotNet { archive: 0 }), Path::HeaderOnce, Certainty::Guess);
         // the ZipArchive library, one entry a second: no mark of its own in the directory, and
         // on Windows the marks of yeka/zip, which its headers take back
         for fixture in ["gen_ziparchive_glibc.zip", "gen_ziparchive_win.zip"] {
             assert_eq!(pool(fixture).archives[0].writer, Writer::Unknown, "{fixture}");
-            assert_eq!(asked(fixture, &Limits::default()), [info_zip, clocked], "{fixture}");
+            assert_eq!(asked(fixture, &Limits::default()), [info_zip, clocked, dot_net], "{fixture}");
             assert!(asked(fixture, &Limits { no_guess: true, ..Limits::default() }).is_empty());
         }
         // zip utils: entries of one step of its clock have one header, which a generator that
         // is seeded once for a run never gives, so the question of Info-ZIP is not asked
-        assert_eq!(asked("gen_ziputils_win.zip", &Limits::default()), [clocked]);
+        assert_eq!(asked("gen_ziputils_win.zip", &Limits::default()), [clocked, dot_net]);
+        // the libraries of Aspose and of ComponentOne are such writers without a mark
+        assert_eq!(asked("gen_aspose_net5.zip", &Limits::default()), [info_zip, clocked, dot_net]);
+        assert_eq!(asked("gen_c1zip_net8.zip", &Limits::default()), [info_zip, clocked, dot_net]);
+        let aspose = attempts(&pool("gen_aspose_net5.zip"), &Limits::default());
+        assert!(aspose[2].what.starts_with("encryption headers of 10 entries, encrypted once: whether a library of .NET made a generator for each entry, as Aspose.ZIP does"), "{}", aspose[2].what);
         let utils = attempts(&pool("gen_ziputils_win.zip"), &Limits::default());
         assert!(utils[0].what.starts_with("encryption headers of 16 entries, encrypted once: whether a clock seeded their generator for each entry") && utils[0].chance > 0.4, "{}", utils[0].what);
         // the constant of yeka/zip is no clock, and a family that is known is not asked
@@ -853,15 +996,21 @@ mod tests {
         // minizip: made by version 0 and no data descriptor, where zip says 3.0 and has one
         let minizip = pool("gen_minizip_glibc.zip");
         let asked = attempts(&minizip, &Limits::default());
-        // and whether a clock seeded it for each entry, which is the other writer without marks
-        assert_eq!(asked.len(), 2);
+        // and whether a clock seeded it for each entry or a library of .NET wrote it, which are
+        // the other writers without marks
+        assert_eq!(asked.len(), 3);
+        assert_eq!((asked[2].path, asked[2].special, asked[2].certainty), (Path::HeaderOnce, Some(Special::DotNet { archive: 0 }), Certainty::Guess));
         assert_eq!((asked[1].path, asked[1].special, asked[1].certainty), (Path::HeaderOnce, Some(Special::Clocked { archive: 0 }), Certainty::Guess));
         assert!(asked[1].chance < asked[0].chance);
         assert_eq!((asked[0].path, asked[0].special, asked[0].certainty), (Path::Header, Some(Special::InfoZip { archive: 0 }), Certainty::Guess));
         assert!(asked[0].what.starts_with("encryption headers of 6 entries: whether the generator of a C library filled them"), "{}", asked[0].what);
         assert!(attempts(&minizip, &Limits { no_guess: true, ..Limits::default() }).is_empty());
-        // zip leaves its marks whatever C library it was built against
-        for fixture in ["gen_infozip_musl.zip", "gen_infozip_win.zip"] {
+        // zip leaves its marks whatever C library it was built against, and WinRAR from 4.20
+        // on leaves its own. WinRAR 2.90 leaves none and is asked as a guess
+        assert_eq!(pool("gen_winrar_723.zip").archives[0].writer, Writer::WinRar);
+        let old = attempts(&pool("gen_winrar_290.zip"), &Limits::default());
+        assert_eq!((old[0].special, old[0].certainty), (Some(Special::InfoZip { archive: 0 }), Certainty::Guess));
+        for fixture in ["gen_infozip_musl.zip", "gen_infozip_win.zip", "gen_infozip_official.zip", "gen_infozip_cygwin.zip", "gen_winrar_723.zip"] {
             let of_zip = attempts(&pool(fixture), &Limits::default());
             assert_eq!((of_zip.len(), of_zip[0].certainty), (1, Certainty::Likely), "{fixture}");
         }
@@ -884,7 +1033,7 @@ mod tests {
         assert!(made_of(1_526_274_454).is_some_and(|words| words.ends_with("the number of the process that wrote it")));
         assert!(made_of(3_493_857_940).is_some_and(|words| words.contains("the constant that minizip")));
         assert!(made_of(17).is_none() && !is_a_time(586_298_518) && is_a_time(1_797_846_278));
-        assert_eq!(Library::ALL.map(Library::label), ["glibc", "macOS", "musl", "Windows"]);
+        assert_eq!(Library::ALL.map(Library::label), ["glibc", "macOS", "musl", "Windows", "Borland", "Borland as WinRAR 3.20 reads it"]);
     }
 
     #[test]

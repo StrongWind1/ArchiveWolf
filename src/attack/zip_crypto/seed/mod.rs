@@ -6,8 +6,9 @@
 //!
 //! - Info-ZIP and what is built on its code fill ten bytes from `rand()` and encrypt them
 //!   twice. The seed is found from the first byte of each header, for the `rand()` of each C
-//!   library that `zip` is built against: [`glibc`], [`bsd`] for macOS, [`musl`] and
-//!   [`msvcrt`] for Windows. [`infozip`] holds the filter that the seed gives for every key,
+//!   library that `zip` is built against: [`glibc`], [`bsd`] for macOS, [`musl`],
+//!   [`msvcrt`] for Windows and [`borland`] for the oldest versions of WinRAR, whose ZIP code
+//!   is that of Info-ZIP. [`infozip`] holds the filter that the seed gives for every key,
 //!   and [`stay`] is the attack of Stay that goes from the headers to the keys.
 //! - DotNetZip and SharpZipLib fill the header from `System.Random` and encrypt it once.
 //!   [`dotnet`] finds the seed on the runtimes that seed it from one generator of the thread,
@@ -18,6 +19,7 @@
 //! Everything here works on header bytes and a few numbers. Nothing reads a file, parses an
 //! archive or prints. A search that can take long is given a [`Control`].
 
+pub mod borland;
 pub mod bsd;
 pub mod clocked;
 pub mod dotnet;
@@ -269,7 +271,12 @@ mod tests {
     /// bytes in front of the data of every entry, in the order the entries lie in the archive.
     #[test]
     fn the_recorded_headers_are_those_of_the_fixtures() {
-        let recorded: [(&str, &[[u8; 12]]); 16] = [
+        let recorded: [(&str, &[[u8; 12]]); 21] = [
+            ("gen_winrar_290.zip", &borland::tests::HEADERS),
+            ("gen_winrar_320.zip", &borland::tests::MIXED_HEADERS),
+            ("gen_winrar_723.zip", &msvcrt::tests::WINRAR_HEADERS),
+            ("gen_infozip_official.zip", &msvcrt::tests::OFFICIAL_HEADERS),
+            ("gen_infozip_cygwin.zip", &glibc::tests::CYGWIN_HEADERS),
             ("gen_doublecmd_first.zip", &fpc::tests::FIRST_HEADERS),
             ("gen_doublecmd_second.zip", &fpc::tests::SECOND_HEADERS),
             ("gen_ziparchive_glibc.zip", &clocked::tests::ZIPARCHIVE_GLIBC),

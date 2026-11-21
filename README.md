@@ -395,11 +395,13 @@ Twelve bytes stand in front of every entry and are encrypted with it: an encrypt
 
 | Writer | Where its header bytes come from | The archive needs | Time |
 |---|---|---|---|
-| Info-ZIP `zip`: the `zip` command of Linux and of macOS, and `zip.exe` on Windows | The `rand()` of its C library, seeded once with the time: glibc, macOS, musl and the runtime of Windows are searched | 4 entries | Seconds, and half a minute with exactly four |
+| Info-ZIP `zip`: the `zip` command of Linux and of macOS, and `zip.exe` on Windows as Info-ZIP, GnuWin32, MinGW, Cygwin and MSYS2 build it | The `rand()` of its C library, seeded once with the time: glibc, which Cygwin and MSYS2 share, macOS, musl, the runtime of Windows and that of Borland are searched | 4 entries | Seconds, and half a minute with exactly four |
+| WinRAR 2.90 to 3.20 and 4.20 to 7.23, for a ZIP archive under what it calls ZIP legacy encryption | The header of Info-ZIP, whose code WinRAR carries: the `rand()` of Borland up to 3.20 and that of Windows from 4.20 on, seeded once with the time and the process number | 4 entries | Seconds |
 | minizip, and the many programs that are built on it | The same generator and another seed. It leaves no mark of itself, so a writer that is not known is asked the same question | 4 entries | Seconds |
 | Double Commander | The generator of Free Pascal, which its zip plugin never seeds: one sequence, the same on every machine | 4 entries | A second |
-| SharpZipLib up to 1.3.0 and DotNetZip, on .NET Core 2.1 to .NET 5 | The generator of .NET, made anew for each entry | 5 entries | About a minute |
-| The same two on the .NET Framework | The same generator, seeded for each entry with the clock of Windows | Entries written over twelve steps of that clock or more, which is a fifth of a second | Half a minute to some minutes |
+| SharpZipLib up to 1.3.0, DotNetZip and Aspose.ZIP, on .NET Core 2.0 to .NET 5 | The generator of .NET, made anew for each entry | 5 entries | About a minute |
+| The same on the .NET Framework and on .NET Core 1.0 and 1.1 | The same generator, seeded for each entry with the clock of Windows | Entries written over twelve steps of that clock or more, which is a fifth of a second | Half a minute to some minutes |
+| The zip library of ComponentOne (`C1.Zip`) | A generator of .NET that is seeded for each entry with the millisecond of the clock: one of a thousand headers, on every runtime | Entries written in three different milliseconds or more shortly after each other, or in thirteen at any time | Seconds |
 | The ZipArchive library of Artpol | `rand()`, seeded for each entry with the time in seconds | Entries written in two different seconds or more | Seconds |
 | zip utils and XZip | `rand()`, seeded for each entry with the clock of Windows and the handle of the desktop window | Entries written over two steps of that clock or more, by a program in the session of a user | Seconds |
 
@@ -412,7 +414,10 @@ $zip$4$*1*b4fd7fc8*9cc4f2bc*92c95100$/zip$
 
 - A writer that drew a header for a file it then gave up, as `zip` does, is allowed for.
 - Ten equal bytes at the start of every header are `yeka/zip`. They are no path of their own, and filter every key of another search.
-- zip utils is measured as a generator on Windows, and not yet on an archive that a user's program wrote: the handle of that desktop is taken to be the usual one. An archive that a service wrote has another handle and is not found.
+- zip utils is measured on archives that a program wrote in the session of a user, on two machines with Windows Server 2022: the handle of the desktop window is the same there. An archive that a service wrote has another handle and is not found.
+- WinRAR 3.51 to 4.01 takes its header bytes from a hash of two clocks and is not reached. 5.50 and 5.61 encrypt a ZIP archive with AES unless the legacy option is set by hand.
+- Aspose.ZIP and the library of ComponentOne leave no mark of their own in the directory: an archive of a writer that is not known is asked their question as a guess.
+- On .NET 6 and later the generator of SharpZipLib, DotNetZip and Aspose.ZIP cannot be predicted, and 7-Zip and the `tar` of Windows draw from a secure source. Bandizip was measured too: none of the generators above gives its headers.
 - `info` says which of these an archive shows, as the finding `weak-header`.
 
 #### Giving it what you know

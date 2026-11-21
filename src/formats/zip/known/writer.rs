@@ -26,6 +26,9 @@ pub(crate) enum Writer {
     DotNetZip,
     /// `github.com/yeka/zip`, the library of Go.
     Yeka,
+    /// WinRAR from 4.20 on, writing what it calls ZIP legacy encryption with the code of
+    /// Info-ZIP.
+    WinRar,
     /// A writer the marks do not name.
     Unknown,
 }
@@ -33,7 +36,7 @@ pub(crate) enum Writer {
 impl Writer {
     /// Every family, in the order of the design.
     #[cfg(test)]
-    pub(crate) const ALL: [Self; 6] = [Self::InfoZip, Self::SevenZip, Self::SharpZipLib, Self::DotNetZip, Self::Yeka, Self::Unknown];
+    pub(crate) const ALL: [Self; 7] = [Self::InfoZip, Self::SevenZip, Self::SharpZipLib, Self::DotNetZip, Self::Yeka, Self::WinRar, Self::Unknown];
 
     /// The name of the family in the JSON object and in a plan.
     #[must_use]
@@ -44,6 +47,7 @@ impl Writer {
             Self::SharpZipLib => "sharp-zip-lib",
             Self::DotNetZip => "dot-net-zip",
             Self::Yeka => "yeka",
+            Self::WinRar => "winrar",
             Self::Unknown => "unknown",
         }
     }
@@ -57,6 +61,7 @@ impl Writer {
             Self::SharpZipLib => "SharpZipLib",
             Self::DotNetZip => "DotNetZip",
             Self::Yeka => "yeka/zip",
+            Self::WinRar => "WinRAR",
             Self::Unknown => "a writer the directory does not name",
         }
     }
@@ -66,7 +71,7 @@ impl Writer {
     #[must_use]
     pub(crate) const fn check_bytes(self) -> Option<u8> {
         match self {
-            Self::InfoZip | Self::Yeka => Some(2),
+            Self::InfoZip | Self::Yeka | Self::WinRar => Some(2),
             Self::SevenZip | Self::SharpZipLib | Self::DotNetZip => Some(1),
             Self::Unknown => None,
         }
@@ -78,7 +83,7 @@ impl Writer {
     #[must_use]
     pub(crate) const fn header_path_entries(self) -> Option<usize> {
         match self {
-            Self::InfoZip => Some(4),
+            Self::InfoZip | Self::WinRar => Some(4),
             Self::SharpZipLib | Self::DotNetZip => Some(5),
             Self::SevenZip | Self::Yeka | Self::Unknown => None,
         }
@@ -98,6 +103,10 @@ impl Writer {
             (51, 0) if entry.needed == 45 && entry.extra.zip64 => Self::SharpZipLib,
             (45, 0) if entry.needed == 20 && entry.extra.ntfs && !descriptor => Self::DotNetZip,
             (20, 0) if entry.needed == 20 && descriptor && entry.extra.len == 0 => Self::Yeka,
+            // WinRAR names 3.1 from its version 4.20 on, and writes an encrypted entry with a
+            // data descriptor as the code of Info-ZIP it carries does. Before 4.20 it leaves
+            // the marks of the line above, which the headers take back
+            (31, 0) if entry.needed == 20 && descriptor => Self::WinRar,
             _ => Self::Unknown,
         }
     }
@@ -196,6 +205,14 @@ mod tests {
             ("tests/fixtures/zip-crypto/gen_ziparchive_win.zip", Writer::Yeka),
             ("tests/fixtures/zip-crypto/gen_ziparchive_glibc.zip", Writer::Unknown),
             ("tests/fixtures/zip-crypto/gen_ziputils_win.zip", Writer::Unknown),
+            ("tests/fixtures/zip-crypto/gen_ziputils_session.zip", Writer::Unknown),
+            // WinRAR 7.23 names itself. 2.90 names version 2.0 and no family: its packed entries
+            // carry the marks of yeka/zip and its stored ones do not
+            ("tests/fixtures/zip-crypto/gen_winrar_723.zip", Writer::WinRar),
+            ("tests/fixtures/zip-crypto/gen_winrar_290.zip", Writer::Unknown),
+            // the zip.exe that Info-ZIP gave out and that of Cygwin are zip
+            ("tests/fixtures/zip-crypto/gen_infozip_official.zip", Writer::InfoZip),
+            ("tests/fixtures/zip-crypto/gen_infozip_cygwin.zip", Writer::InfoZip),
             // nothing in it is of zip-crypto
             ("tests/fixtures/zip-winzip/aes256.zip", Writer::Unknown),
         ] {
@@ -234,12 +251,12 @@ mod tests {
     #[test]
     fn a_family_is_named_one_way_everywhere() {
         let names: Vec<&str> = Writer::ALL.iter().map(|writer| writer.as_str()).collect();
-        assert_eq!(names, ["info-zip", "7-zip", "sharp-zip-lib", "dot-net-zip", "yeka", "unknown"]);
+        assert_eq!(names, ["info-zip", "7-zip", "sharp-zip-lib", "dot-net-zip", "yeka", "winrar", "unknown"]);
         for writer in Writer::ALL {
             assert_eq!(serde_json::to_value(writer).unwrap(), serde_json::json!(writer.as_str()));
             assert!(!writer.label().is_empty());
         }
         assert_eq!((Writer::InfoZip.check_bytes(), Writer::SevenZip.check_bytes(), Writer::Unknown.check_bytes()), (Some(2), Some(1), None));
-        assert_eq!(Writer::ALL.map(Writer::header_path_entries), [Some(4), None, Some(5), Some(5), None, None]);
+        assert_eq!(Writer::ALL.map(Writer::header_path_entries), [Some(4), None, Some(5), Some(5), None, Some(4), None]);
     }
 }

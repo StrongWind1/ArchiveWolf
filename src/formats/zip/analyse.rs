@@ -189,7 +189,7 @@ fn known_without_a_key(source: &Source, entries: &[ZipEntry], seen: &[Seen], par
         },
         Some(HeaderMark::Repeated(repeated)) => Some((WeakHeader::Repeated, repeated.iter().filter_map(|&place| headers.get(place)).map(|(index, _)| *index).collect())),
         None => match writer {
-            Writer::InfoZip if writer.header_path_entries().is_some_and(|needed| places.len() >= needed) => Some((WeakHeader::InfoZip, places.clone())),
+            Writer::InfoZip | Writer::WinRar if writer.header_path_entries().is_some_and(|needed| places.len() >= needed) => Some((WeakHeader::InfoZip, places.clone())),
             Writer::SharpZipLib | Writer::DotNetZip if writer.header_path_entries().is_some_and(|needed| places.len() >= needed) => Some((WeakHeader::EncryptedOnce, places.clone())),
             _ => None,
         },

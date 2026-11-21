@@ -1,5 +1,4 @@
-//! Writers that seed the `rand()` of their C library from a clock for every entry, and
-//! encrypt the header once.
+//! Writers that seed a generator from a clock for every entry, and encrypt the header once.
 //!
 //! - **The `ZipArchive` library of Artpol** calls `srand(time(NULL))` in front of every
 //!   entry and draws ten bytes: bits 6 to 13 of a value of `rand()`, or its low byte when
@@ -9,6 +8,11 @@
 //!   `srand(GetTickCount() ^ GetDesktopWindow())` in front of every entry: it tests a flag
 //!   before it seeds and never sets it. It draws eleven bytes, bits 7 to 14 of a value each,
 //!   and the high byte of the DOS time follows (`zip.cpp`, `TZip::Add`).
+//! - **The zip library of ComponentOne** (`C1.Zip`, `C1.C1Zip`) makes a `new
+//!   Random(DateTime.Now.Millisecond)` of .NET in front of every entry and draws ten bytes
+//!   as the `ZipArchive` library does, bits 6 to 13 of a value or its low byte. The two bytes
+//!   of the DOS time follow. Its clock has a thousand values, on every runtime: a generator
+//!   of .NET that is given a seed is the same one everywhere.
 //!
 //! What follows from seeding for each entry:
 //!
@@ -35,6 +39,7 @@ use archivewolf_zip_crypto::Keys;
 
 use super::Control;
 use super::Generator as _;
+use super::dotnet;
 use super::glibc;
 use super::header_byte;
 use super::msvcrt;
@@ -78,6 +83,9 @@ enum Program {
     ZipArchive(Runtime),
     /// zip utils: the clock is the number of the interrupt of the timer of Windows.
     ZipUtils,
+    /// The zip library of ComponentOne: the clock is a count of milliseconds, of which the
+    /// place in its second is what seeds.
+    ComponentOne,
 }
 
 /// A writer that seeds for every entry.
@@ -91,7 +99,7 @@ pub struct Writer {
 
 impl Writer {
     /// Every writer, in the order they are searched.
-    pub const ALL: [Self; 3] = [Self::zip_archive(Runtime::Windows), Self::zip_archive(Runtime::Glibc), Self::zip_utils(DESKTOP)];
+    pub const ALL: [Self; 4] = [Self::zip_archive(Runtime::Windows), Self::zip_archive(Runtime::Glibc), Self::zip_utils(DESKTOP), Self::component_one()];
 
     /// The `ZipArchive` library of Artpol, built against a C library.
     #[must_use]
@@ -105,6 +113,23 @@ impl Writer {
         Self { program: Program::ZipUtils, window }
     }
 
+    /// The zip library of ComponentOne.
+    #[must_use]
+    pub const fn component_one() -> Self {
+        Self { program: Program::ComponentOne, window: 0 }
+    }
+
+    /// How many values the clock of the writer has, when they are so few that every one of
+    /// them is tried: the milliseconds of a second for the library of ComponentOne. `None`
+    /// for a clock that is searched for.
+    #[must_use]
+    pub const fn values(self) -> Option<u64> {
+        match self.program {
+            Program::ComponentOne => Some(1000),
+            Program::ZipArchive(_) | Program::ZipUtils => None,
+        }
+    }
+
     /// The writer in the words of a report.
     #[must_use]
     pub const fn label(self) -> &'static str {
@@ -112,6 +137,7 @@ impl Writer {
             Program::ZipArchive(Runtime::Windows) => "the ZipArchive library on Windows",
             Program::ZipArchive(Runtime::Glibc) => "the ZipArchive library on glibc",
             Program::ZipUtils => "zip utils",
+            Program::ComponentOne => "the zip library of ComponentOne",
         }
     }
 
@@ -126,7 +152,7 @@ impl Writer {
     #[must_use]
     pub const fn random(self) -> usize {
         match self.program {
-            Program::ZipArchive(_) => 10,
+            Program::ZipArchive(_) | Program::ComponentOne => 10,
             Program::ZipUtils => 11,
         }
     }
@@ -140,6 +166,10 @@ impl Writer {
                 u32::from_le_bytes([a, b, c, d])
             },
             Program::ZipUtils => netfx::tick_count(clock) ^ self.window,
+            Program::ComponentOne => {
+                let [a, b, c, d, ..] = (clock % 1000).to_le_bytes();
+                u32::from_le_bytes([a, b, c, d])
+            },
         }
     }
 
@@ -165,6 +195,12 @@ impl Writer {
                 let mut rand = msvcrt::Rand::seeded(seed);
                 for slot in &mut bytes {
                     *slot = header_byte(rand.rand());
+                }
+            },
+            Program::ComponentOne => {
+                let mut random = dotnet::Random::new(seed.cast_signed());
+                for slot in bytes.iter_mut().take(self.random()) {
+                    *slot = picked(random.sample().cast_unsigned());
                 }
             },
         }
@@ -196,8 +232,9 @@ impl Writer {
     }
 }
 
-/// The byte the `ZipArchive` library takes of a value of `rand()`: bits 6 to 13, and the low
-/// byte when those are zero.
+/// The byte the `ZipArchive` library takes of a value of `rand()`, and the library of
+/// ComponentOne of a value of its generator: bits 6 to 13, and the low byte when those are
+/// zero.
 const fn picked(value: u32) -> u8 {
     let [byte, ..] = (value >> 6).to_le_bytes();
     if byte == 0 { value.to_le_bytes()[0] } else { byte }
@@ -398,9 +435,10 @@ impl Tables {
 pub struct Tree {
     /// The stream bytes of the header the search runs on.
     first: [u8; 12],
-    /// The stream bytes of every other header, and how many bytes it has in common with the
-    /// first, before and after encryption.
-    others: Vec<([u8; 12], usize)>,
+    /// What is held against it, group by group: the stream bytes of every header a group
+    /// may have, and how many bytes each has in common with the first, before and after
+    /// encryption. One of them is the header of the group.
+    others: Vec<Vec<([u8; 12], usize)>>,
 }
 
 impl Tree {
@@ -408,12 +446,26 @@ impl Tree {
     /// before encryption and as it stands in the archive.
     #[must_use]
     pub fn new(first: ([u8; 12], [u8; 12]), others: &[([u8; 12], [u8; 12])]) -> Self {
+        let groups: Vec<Vec<([u8; 12], [u8; 12])>> = others.iter().map(|other| vec![*other]).collect();
+        Self::of_alternatives(first, &groups)
+    }
+
+    /// The tree of a header and of groups of which the header is not known for certain: each
+    /// group is the headers it may have been before encryption, with the header as it stands
+    /// in the archive. A candidate has to go on along one of them in every group.
+    #[must_use]
+    pub fn of_alternatives(first: ([u8; 12], [u8; 12]), groups: &[Vec<([u8; 12], [u8; 12])>]) -> Self {
         let stream = |(plain, written): ([u8; 12], [u8; 12])| -> [u8; 12] { std::array::from_fn(|at| plain.get(at).copied().unwrap_or_default() ^ written.get(at).copied().unwrap_or_default()) };
-        let others = others
+        let others = groups
             .iter()
-            .map(|&(plain, written)| {
-                let common = plain.iter().zip(first.0).zip(written.iter().zip(first.1)).take_while(|((a, b), (c, d))| *a == b && *c == d).count();
-                (stream((plain, written)), common)
+            .map(|group| {
+                group
+                    .iter()
+                    .map(|&(plain, written)| {
+                        let common = plain.iter().zip(first.0).zip(written.iter().zip(first.1)).take_while(|((a, b), (c, d))| *a == b && *c == d).count();
+                        (stream((plain, written)), common)
+                    })
+                    .collect()
             })
             .collect();
         Self { first: stream(first), others }
@@ -440,9 +492,11 @@ impl Tree {
     fn back(&self, tables: &Tables, at: usize, index: usize, way: &mut [u32; 12]) -> bool {
         let Some(&third) = way.get(at) else { return false };
         let Some(before) = at.checked_sub(1) else {
-            return self.others.iter().all(|(stream, common)| {
-                let from = (*common).min(index);
-                way.get(from).is_some_and(|&key| forward(tables, stream, key, from + 1))
+            return self.others.iter().all(|group| {
+                group.iter().any(|(stream, common)| {
+                    let from = (*common).min(index);
+                    way.get(from).is_some_and(|&key| forward(tables, stream, key, from + 1))
+                })
             });
         };
         // the step that led here took the table entry with the top byte of this key: what is
@@ -662,6 +716,45 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn the_library_of_component_one_draws_from_a_generator_of_the_millisecond() {
+        // the first three headers of an archive that C1.Zip 8.0 wrote on .NET 10, decrypted
+        // with its password: the generators of the milliseconds 182, 184 and 193, which are
+        // those the program that called the library printed, or a millisecond later
+        let writer = Writer::component_one();
+        assert_eq!(hex(&writer.plain(182)[..10]), "5c1b7a9c7436e6be27c6");
+        assert_eq!(hex(&writer.plain(184)[..10]), "0509fc64bb47454cbfa9");
+        assert_eq!(hex(&writer.plain(193)[..10]), "ffb9c5ebfb13754de728");
+        // the clock counts on and the seed starts again with every second
+        assert_eq!((writer.seed(182), writer.seed(1182), writer.seed(999), writer.seed(1000)), (182, 182, 999, 0));
+        assert_eq!(writer.plain(1182), writer.plain(182));
+        // both bytes of the time behind the ten, and all its values are tried
+        assert_eq!(hex(&writer.header(182, 0x6c22)), "5c1b7a9c7436e6be27c6226c");
+        assert_eq!((writer.values(), writer.random(), writer.by_the_second()), (Some(1000), 10, false));
+        assert_eq!(Writer::zip_utils(DESKTOP).values(), None);
+    }
+
+    #[test]
+    fn a_tree_of_alternatives_keeps_the_key_when_one_of_each_group_is_its_header() {
+        let writer = Writer::component_one();
+        let password = b"some password";
+        let clocks = [182_u64, 184, 193, 207, 232];
+        let headers = written(writer, &clocks, password);
+        let (first, others) = headers.split_first().unwrap();
+        let (_, thirds) = encrypted(first.0, password);
+        // each group with its header among three others that it is not
+        let groups: Vec<Vec<([u8; 12], [u8; 12])>> = others.iter().zip(&clocks[1..]).map(|(&(plain, header), &clock)| vec![(writer.header(clock + 400, 0x1111), header), (plain, header), (writer.header(clock + 77, 0x2222), header), (writer.header(clock + 500, 0x3333), header)]).collect();
+        let tree = Tree::of_alternatives(*first, &groups);
+        assert!((7..12).all(|index| tree.allows(thirds[index], index)));
+        // without the header of one group among its alternatives the key is dropped
+        let mut without = groups.clone();
+        let _ = without[2].remove(1);
+        assert!(!Tree::of_alternatives(*first, &without).allows(thirds[11], 11));
+        // and a group with no alternative at all allows nothing
+        without[2].clear();
+        assert!(!Tree::of_alternatives(*first, &without).allows(thirds[11], 11));
+    }
+
+    #[test]
     fn two_headers_agree_where_they_first_differ() {
         let (first, other) = ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0], [1, 2, 9, 4, 5, 6, 7, 8, 9, 10, 0]);
         let header = |stream: [u8; 3], plain: &[u8; BYTES]| -> [u8; 12] {
@@ -754,7 +847,7 @@ pub(crate) mod tests {
         let (first, others) = headers.split_first().unwrap();
         let (_, thirds) = encrypted(first.0, password);
         let tree = Tree::new(*first, others);
-        assert!(tree.others.iter().all(|(_, common)| *common == 10));
+        assert!(tree.others.iter().flatten().all(|(_, common)| *common == 10));
         assert!(tree.allows(thirds[11], 11) && tree.allows(thirds[8], 8));
         // every other key in front of the last byte that has its stream byte, with bits 16
         // to 23 as they come. A step of the third key takes any entry of the CRC table, and

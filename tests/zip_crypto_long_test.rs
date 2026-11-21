@@ -108,7 +108,69 @@ mod tests {
         let output = attack(&[&format!("{FIXTURES}/gen_ziputils_win.zip")]);
         let said = String::from_utf8_lossy(&output.stderr);
         assert_eq!(output.status.code(), Some(3), "{said}");
-        assert!(said.contains("no clock of the ZipArchive library or of zip utils gives the headers"), "{said}");
+        assert!(said.contains("no clock of the ZipArchive library, of the zip library of ComponentOne or of zip utils gives the headers"), "{said}");
+    }
+
+    #[test]
+    #[ignore = "long: make test-zip-crypto"]
+    fn zip_utils_in_the_session_of_a_user_gives_the_clock_and_the_keys() {
+        // the same program on the same machine, started in the session of the user who was
+        // logged on: the handle of the desktop window is the one the command searches with
+        let output = attack(&[&format!("{FIXTURES}/gen_ziputils_session.zip")]);
+        finds(&output, "ziputils-in-a-session");
+        let said = String::from_utf8_lossy(&output.stderr);
+        assert!(said.contains("the archive was written by zip utils, which seeds its generator from a clock for every entry: the machine had been running for 18 days 12 hours when its first entry was written"), "{said}");
+        assert!(said.contains("the keys open 16 of 16 encrypted entries"), "{said}");
+    }
+
+    #[test]
+    #[ignore = "long: make test-zip-crypto"]
+    fn the_headers_of_winrar_and_of_the_zip_of_windows_give_the_keys() {
+        // WinRAR writes a ZIP archive with the code of Info-ZIP: built with the compiler of
+        // Borland up to 3.20, where 3.20 puts each byte through the table of the CRC-32, and
+        // with that of Microsoft from 4.20 on. The zip.exe that Info-ZIP gave out draws from
+        // the runtime of Windows, and that of Cygwin from the generator of glibc
+        let archives = [
+            ("gen_winrar_290.zip", "winrar-headers", "Borland"),
+            ("gen_winrar_320.zip", "winrar-headers", "Borland as WinRAR 3.20 reads it"),
+            ("gen_winrar_723.zip", "winrar-headers", "Windows"),
+            ("gen_infozip_official.zip", "zip-official32-headers", "Windows"),
+            ("gen_infozip_cygwin.zip", "zip-cygwin-headers", "glibc"),
+        ];
+        for (fixture, password, library) in archives {
+            let output = attack(&[&format!("{FIXTURES}/{fixture}")]);
+            finds(&output, password);
+            let said = String::from_utf8_lossy(&output.stderr);
+            assert!(said.contains(&format!(" of the generator of {library}: it gives the first byte of the header of all 6 entries. It is the time the archive was written, exclusive-or the number of the process that wrote it")), "{fixture}: {said}");
+            assert!(said.contains("the keys open 6 of 6 encrypted entries"), "{fixture}: {said}");
+        }
+        // WinRAR from 4.20 on names itself in the directory, and the path is no guess
+        let named = attack(&["--plan", &format!("{FIXTURES}/gen_winrar_723.zip")]);
+        assert!(String::from_utf8_lossy(&named.stderr).contains("written by WinRAR"), "{}", String::from_utf8_lossy(&named.stderr));
+    }
+
+    #[test]
+    #[ignore = "long: make test-zip-crypto"]
+    fn the_headers_of_aspose_zip_on_net_5_give_a_run_of_twelve() {
+        // a library that leaves no mark of its own: the question of SharpZipLib and DotNetZip
+        // is asked of it as a guess, and it makes one generator before that of its first entry
+        let output = attack(&[&format!("{FIXTURES}/gen_aspose_net5.zip")]);
+        finds(&output, "aspose-headers");
+        let said = String::from_utf8_lossy(&output.stderr);
+        assert!(said.contains("whether a library of .NET made a generator for each entry, as Aspose.ZIP does"), "{said}");
+        assert!(said.contains("with 1 made before the first entry: it gives eleven bytes of every header") && said.contains("the keys open 10 of 10 encrypted entries"), "{said}");
+    }
+
+    #[test]
+    #[ignore = "long: make test-zip-crypto"]
+    fn the_headers_of_the_library_of_component_one_are_each_one_of_a_thousand() {
+        // a generator of .NET that is seeded with the millisecond for every entry: every value
+        // is tried at the first entry, and the headers of the others leave one
+        let output = attack(&[&format!("{FIXTURES}/gen_c1zip_net8.zip")]);
+        finds(&output, "c1-headers");
+        let said = String::from_utf8_lossy(&output.stderr);
+        assert!(said.contains("the archive was written by the zip library of ComponentOne, which seeds its generator from the millisecond of the clock for every entry: its first entry was written at millisecond 997 of a second"), "{said}");
+        assert!(said.contains("Each of the 16 groups of entries") && said.contains("the keys open 16 of 16 encrypted entries"), "{said}");
     }
 
     #[test]
