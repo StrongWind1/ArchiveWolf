@@ -1,0 +1,259 @@
+[package]
+name = "archivewolf"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+# The RAR code that follows the UnRAR source is under LICENSE-UNRAR.txt. The packers of
+# `attack zip-crypto` are a port of the Deflate of zlib, under the zlib licence that their
+# files carry, and of the Deflate of Info-ZIP zip, under LICENSE-INFOZIP.txt. The rest is
+# under LICENSE. The key search, a port of bkcrack-rs, is in a crate of its own.
+license = "Apache-2.0 AND UnRAR AND Zlib AND Info-ZIP"
+repository = "https://github.com/StrongWind1/ArchiveWolf"
+homepage = "https://github.com/StrongWind1/ArchiveWolf"
+# Also the first line of `archivewolf --help`: the command line takes its `about` from here.
+description = "Analyser and hashcat hash converter for encrypted ZIP, RAR and 7-Zip archives"
+keywords = ["encryption", "zip", "rar", "7zip", "hashcat"]
+categories = ["command-line-utilities", "parser-implementations", "security"]
+readme = "README.md"
+# What a build needs, the two licences and the documents crates.io shows. The tests and their
+# fixtures (about 24 MiB) stay out: with them the crate is over the 10 MB limit of crates.io.
+include = [
+  "/src/**/*",
+  "/Cargo.toml",
+  "/Cargo.lock",
+  "/README.md",
+  "/LICENSE",
+  "/LICENSE-UNRAR.txt",
+  "/LICENSE-BKCRACK.txt",
+  "/LICENSE-INFOZIP.txt",
+]
+
+# The search core of `attack zip-crypto` is a crate of its own (crates/zip-crypto): its vector
+# kernel needs unsafe code, which this crate forbids, and it is optimised in every profile.
+[workspace]
+members = [".", "crates/zip-crypto"]
+
+# ---------------------------------------------------------------------------
+# Dependencies -- grouped by role.
+#
+# Runtime: CLI, parallelism, diagnostics, output.
+# Format parsing: decompression, checksums, binary reading, and SHA-256 for
+# the check value of a RAR 5 hash line.
+# ---------------------------------------------------------------------------
+
+[dependencies]
+# --- Runtime -----------------------------------------------------------------
+clap = { version = "4", features = ["derive", "wrap_help"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rayon = "1"
+walkdir = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"
+
+# --- The key search of `attack zip-crypto` -----------------------------------
+archivewolf-zip-crypto = { version = "0.1.0", path = "crates/zip-crypto" }
+
+# --- Format parsing ----------------------------------------------------------
+flate2 = "1"
+crc32fast = "1"
+lzma-rust2 = { version = "0.25", default-features = false, features = ["std"] }
+sha2 = "0.11"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+proptest = "1"
+
+[lints.rust]
+# --- Forbid (no override possible) ------------------------------------------
+arithmetic_overflow = "forbid"
+deref_nullptr = "forbid"
+invalid_atomic_ordering = "forbid"
+invalid_null_arguments = "forbid"
+invalid_reference_casting = "forbid"
+mutable_transmutes = "forbid"
+non_ascii_idents = "forbid"
+overflowing_literals = "forbid"
+text_direction_codepoint_in_comment = "forbid"
+text_direction_codepoint_in_literal = "forbid"
+unconditional_panic = "forbid"
+unused = { level = "deny", priority = -1 }
+# --- Forbid (project policy) ------------------------------------------------
+unsafe_code = "forbid"
+# --- Deny (deny-by-default) -------------------------------------------------
+ambiguous_associated_items = "deny"
+ambiguous_glob_imports = "forbid"
+binary_asm_labels = "deny"
+bindings_with_variant_name = "deny"
+conflicting_repr_hints = "forbid"
+dangerous_implicit_autorefs = "deny"
+dependency_on_unit_never_type_fallback = "deny"
+elided_lifetimes_in_associated_constant = "deny"
+enum_intrinsics_non_enums = "deny"
+explicit_builtin_cfgs_in_flags = "deny"
+ill_formed_attribute_input = "deny"
+incomplete_include = "deny"
+ineffective_unstable_trait_impl = "deny"
+invalid_from_utf8_unchecked = "deny"
+invalid_macro_export_arguments = "deny"
+invalid_type_param_default = "deny"
+legacy_derive_helpers = "deny"
+let_underscore_lock = "forbid"
+long_running_const_eval = "deny"
+macro_expanded_macro_exports_accessed_by_absolute_paths = "deny"
+named_asm_labels = "deny"
+never_type_fallback_flowing_into_unsafe = "deny"
+no_mangle_const_items = "deny"
+out_of_scope_macro_calls = "deny"
+patterns_in_fns_without_body = "deny"
+proc_macro_derive_resolution_fallback = "deny"
+pub_use_of_private_extern_crate = "deny"
+semicolon_in_expressions_from_macros = "deny"
+undropped_manually_drops = "deny"
+uninhabited_static = "deny"
+unknown_crate_types = "deny"
+useless_deprecated = "deny"
+# --- Warn (upgraded from allow) ----------------------------------------------
+absolute_paths_not_starting_with_crate = "warn"
+ambiguous_negative_literals = "warn"
+closure_returning_async_block = "warn"
+deprecated_in_future = "warn"
+deprecated_safe_2024 = "warn"
+deref_into_dyn_supertrait = "warn"
+edition_2024_expr_fragment_specifier = "warn"
+elided_lifetimes_in_paths = "warn"
+explicit_outlives_requirements = "warn"
+ffi_unwind_calls = "warn"
+if_let_rescope = "warn"
+impl_trait_overcaptures = "warn"
+impl_trait_redundant_captures = "warn"
+keyword_idents_2018 = "warn"
+keyword_idents_2024 = "warn"
+let_underscore_drop = "warn"
+linker_messages = "warn"
+macro_use_extern_crate = "warn"
+meta_variable_misuse = "warn"
+missing_copy_implementations = "warn"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+missing_unsafe_on_extern = "warn"
+redundant_imports = "warn"
+redundant_lifetimes = "warn"
+rust_2021_incompatible_closure_captures = "warn"
+rust_2021_incompatible_or_patterns = "warn"
+rust_2021_prefixes_incompatible_syntax = "warn"
+rust_2021_prelude_collisions = "warn"
+rust_2024_guarded_string_incompatible_syntax = "warn"
+rust_2024_incompatible_pat = "warn"
+rust_2024_prelude_collisions = "warn"
+single_use_lifetimes = "warn"
+tail_expr_drop_order = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unit_bindings = "warn"
+unnameable_types = "warn"
+unreachable_pub = "warn"
+unsafe_attr_outside_unsafe = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unstable_features = "warn"
+unused_crate_dependencies = "warn"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+unused_results = "warn"
+variant_size_differences = "warn"
+
+[lints.clippy]
+# --- Lint groups (explicit levels) -------------------------------------------
+all = { level = "deny", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+complexity = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+style = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+restriction = { level = "allow", priority = -1 }
+nursery = { level = "allow", priority = -1 }
+# --- Restriction lints promoted to deny --------------------------------------
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+dbg_macro = "deny"
+exit = "deny"
+mem_forget = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_in_result = "deny"
+# --- Restriction lints promoted to warn --------------------------------------
+cognitive_complexity = "warn"
+create_dir = "warn"
+empty_drop = "warn"
+expect_used = "warn"
+get_unwrap = "warn"
+indexing_slicing = "warn"
+large_include_file = "warn"
+missing_asserts_for_indexing = "warn"
+mixed_read_write_in_expression = "warn"
+multiple_unsafe_ops_per_block = "warn"
+mutex_atomic = "warn"
+mutex_integer = "warn"
+needless_raw_strings = "warn"
+non_zero_suggestions = "warn"
+panic = "warn"
+panic_in_result_fn = "warn"
+pathbuf_init_then_push = "warn"
+precedence_bits = "warn"
+rc_buffer = "warn"
+rc_mutex = "warn"
+renamed_function_params = "warn"
+str_to_string = "warn"
+string_lit_chars_any = "warn"
+suspicious_xor_used_as_pow = "warn"
+undocumented_unsafe_blocks = "warn"
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+unused_result_ok = "warn"
+unwrap_used = "warn"
+# --- Restriction lints promoted to deny (style) ------------------------------
+wildcard_imports = "deny"
+# --- Pedantic group: promoted to warn ----------------------------------------
+use_self = "warn"
+# --- Cargo group: override to allow -----------------------------------------
+multiple_crate_versions = "allow"
+# --- Pedantic group: overrides to allow --------------------------------------
+doc_markdown = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+[[bin]]
+name = "archivewolf"
+path = "src/main.rs"
+
+[profile.dev]
+overflow-checks = true
+
+# The key search is useless without optimisation: a candidate takes a hundred times as long.
+# Its crate is optimised in the development and the test profile as well, so that the tests
+# of the attack find keys in the default run.
+[profile.dev.package.archivewolf-zip-crypto]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "unwind"
+overflow-checks = true
+strip = "symbols"
+
+[profile.release-dev]
+inherits = "release"
+lto = "thin"
+codegen-units = 16
+
+[profile.test]
+overflow-checks = true

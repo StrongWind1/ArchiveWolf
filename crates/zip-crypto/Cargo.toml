@@ -1,0 +1,70 @@
+[package]
+name = "archivewolf-zip-crypto"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+# The reduction and the reference kernel are a port of bkcrack-rs, and the way from keys back
+# to a password is a port of bkcrack, under LICENSE-BKCRACK.txt.
+license = "Apache-2.0 AND Zlib"
+repository = "https://github.com/StrongWind1/ArchiveWolf"
+description = "The cipher of ZIP traditional encryption and the key search of the known-plaintext attack on it, for ArchiveWolf"
+keywords = ["zip", "zipcrypto", "known-plaintext", "simd"]
+categories = ["cryptography", "algorithms"]
+readme = "README.md"
+include = ["/src/**/*", "/Cargo.toml", "/README.md", "/LICENSE", "/LICENSE-BKCRACK.txt"]
+
+# No dependencies: the cipher, its tables and the kernels are all there is.
+[dependencies]
+
+# The lints of the tool, with two differences that are the reason this crate exists. Unsafe
+# code is allowed, because a vector kernel is entered through one call that the compiler
+# cannot check and reads its tables through pointers; every such place says why it is sound.
+# And slices are indexed: the tables are built in constant functions, where nothing else is
+# allowed, and the kernels walk arrays whose bounds the masks of their indices keep.
+[lints.rust]
+arithmetic_overflow = "forbid"
+non_ascii_idents = "forbid"
+overflowing_literals = "forbid"
+unconditional_panic = "forbid"
+unused = { level = "deny", priority = -1 }
+unsafe_op_in_unsafe_fn = "forbid"
+missing_copy_implementations = "warn"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unreachable_pub = "warn"
+unused_crate_dependencies = "warn"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+unused_results = "warn"
+
+[lints.clippy]
+all = { level = "deny", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+complexity = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+style = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+dbg_macro = "deny"
+exit = "deny"
+mem_forget = "deny"
+todo = "deny"
+unimplemented = "deny"
+multiple_unsafe_ops_per_block = "deny"
+undocumented_unsafe_blocks = "deny"
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+expect_used = "warn"
+unwrap_used = "warn"
+panic = "warn"
+use_self = "warn"
+wildcard_imports = "deny"
+doc_markdown = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

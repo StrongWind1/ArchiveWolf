@@ -1,0 +1,33 @@
+# Force LF line endings on checkout for all text files.
+# This prevents CRLF from sneaking in on Windows.
+* text=auto eol=lf
+
+# Ensure these are always treated as text with LF.
+*.rs        text eol=lf diff=rust
+*.toml      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.sh        text eol=lf
+*.fish      text eol=lf
+Makefile    text eol=lf
+*.md        text eol=lf
+*.jsonc     text eol=lf
+# Recorded hash lines are compared byte for byte.
+*.line      text eol=lf
+
+# Binary files -- do not diff or convert line endings.
+# The test fixtures are archives. Git would take one for text if it held no zero byte in
+# its first kilobytes, and convert its line endings: a fixture must never change.
+*.zip       binary
+*.ZIP       binary
+*.rar       binary
+*.RAR       binary
+*.7z        binary
+*.sfx       binary
+*.exe       binary
+*.bin       binary
+*.png       binary
+*.jpg       binary
+*.gif       binary
+*.ico       binary

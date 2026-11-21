@@ -1,0 +1,56 @@
+[store]
+dir = "target/nextest"
+
+# Default: 60s hard kill, fail-fast, show failures inline + at end
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 1, grace-period = "10s" }
+fail-fast = true
+failure-output = "immediate-final"
+success-output = "never"
+status-level = "pass"
+
+# RAR 1.3 key recovery: exhaustive 2^23 search, unpacking an entry per key.
+# Listed before the generic integration-test override: the first match wins.
+[[profile.default.overrides]]
+filter = 'test(/rar_13_.*key_recovered/)'
+slow-timeout = { period = "900s", terminate-after = 1 }
+threads-required = "num-cpus"
+
+# The long searches of attack zip-crypto: each takes every thread for up to some minutes.
+# Listed before the generic integration-test override: the first match wins.
+[[profile.default.overrides]]
+filter = 'binary(zip_crypto_long_test)'
+slow-timeout = { period = "900s", terminate-after = 1 }
+threads-required = "num-cpus"
+
+# Integration tests shell out to the binary: allow 120s
+[[profile.default.overrides]]
+filter = 'kind(test)'
+slow-timeout = { period = "120s", terminate-after = 1 }
+
+# The whole matrices of the packers and of the seed searches, and the attack of Stay from end
+# to end: ignored in the default run, and long in a build that is not optimised.
+[[profile.default.overrides]]
+filter = 'test(/attack::zip_crypto::(pack|seed)::/)'
+slow-timeout = { period = "300s", terminate-after = 1 }
+
+# CI profile: the workflows run nextest with `--profile ci`. It runs every test
+# to the end and writes a JUnit report. What it does not set comes from the
+# default profile, the overrides above included: a setting is taken from the
+# first override that matches a test and names it, this profile's before the
+# default one's.
+[profile.ci]
+fail-fast = false
+
+# A hosted runner has 4 CPUs. Held to 4 CPUs, a development machine took up to
+# 512s for the longest RAR 1.3 search. The 900s above leave too little room for
+# it on a runner whose speed is not known.
+[[profile.ci.overrides]]
+filter = 'test(/rar_13_.*key_recovered/)'
+slow-timeout = { period = "1800s", terminate-after = 1 }
+
+# Relative to the store directory of the profile: target/nextest/ci/junit.xml
+[profile.ci.junit]
+path = "junit.xml"
+report-name = "archivewolf"
+store-failure-output = true

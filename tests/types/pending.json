@@ -1,0 +1,18 @@
+[
+  {"type": "kdbx", "what": "a KeePass database", "names": ["*.kdbx"], "forms": ["0: 03 D9 A2 9A 67 FB 4B B5 ??*2 [03 04] 00"]},
+  {"type": "avi", "what": "an AVI film", "names": ["*.avi"], "forms": ["0: 'RIFF' {size-8:le32} 'AVI LIST'", "0: 'RIFF' ??*4 'AVI LIST'"]},
+  {"type": "lnk", "what": "a Windows shortcut", "names": ["*.lnk"], "forms": ["0: 4C 00 00 00 01 14 02 00 00 00 00 00 C0 00 00 00 00 00 00 46"]},
+  {"type": "appledouble", "what": "an AppleDouble file of macOS", "names": ["__MACOSX/._*", "__MACOSX/*/._*", "._*"], "forms": ["0: 00 05 16 07 00 02 00 00 'Mac OS X        ' 00 02 00 00 00 09 00 00 00 32"]},
+  {"type": "ds_store", "what": "a .DS_Store file of macOS", "names": [".DS_Store"], "forms": ["0: 00 00 00 01 'Bud1' 00 00 [08 10 20 40] 00 00 00 08 00 00 00 [08 10 20 40] 00"]},
+  {"type": "manifest", "what": "a manifest of a Java archive", "names": ["META-INF/MANIFEST.MF"], "forms": ["0: 'Manifest-Version: 1.0' 0D 0A text*64", "0: 'Manifest-Version: 1.0' 0A text*64"]},
+  {"type": "pcapng", "what": "a packet capture of the newer kind", "names": ["*.pcapng"], "forms": ["0: 0A 0D 0D 0A ??*2 00 00 4D 3C 2B 1A 01 00 00 00 FF*8"]},
+  {"type": "reg", "what": "an export of the Windows registry", "names": ["*.reg"], "forms": ["0: FF FE 'W' 00 'i' 00 'n' 00 'd' 00 'o' 00 'w' 00 's' 00 ' ' 00 'R' 00 'e' 00 'g' 00 'i' 00 's' 00 't' 00 'r' 00 'y' 00 ' ' 00 'E' 00 'd' 00 'i' 00 't' 00 'o' 00 'r' 00 ' ' 00 'V' 00 'e' 00 'r' 00 's' 00 'i' 00 'o' 00 'n' 00 ' ' 00 '5' 00 '.' 00 '0' 00 '0' 00 0D 00 0A 00", "0: 'REGEDIT4' 0D 0A"]},
+  {"type": "bplist", "what": "a binary property list", "names": ["*.bplist", "*.strings", "*.nib"], "forms": ["0: 'bplist00'"]},
+  {"type": "mdb", "what": "an Access database", "names": ["*.mdb", "*.accdb", "*.mde", "*.accde"], "forms": ["0: 00 01 00 00 'Standard Jet DB' 00", "0: 00 01 00 00 'Standard ACE DB' 00"]},
+  {"type": "vcf", "what": "a vCard", "names": ["*.vcf", "*.vcard"], "forms": ["0: 'BEGIN:VCARD' 0D 0A 'VERSION:' [32-34] '.' [30 31]", "0: 'BEGIN:VCARD' 0A 'VERSION:' [32-34] '.' [30 31]", "0: 'BEGIN:VCARD' [0A 0D] text*32"]},
+  {"type": "sql", "what": "a database dump", "names": ["*.sql"], "forms": ["0: '-- MySQL dump ' text*64", "0: '-- MariaDB dump ' text*64", "0: '--' 0A '-- PostgreSQL database dump' 0A '--' 0A", "0: 'PRAGMA foreign_keys=OFF;' 0A 'BEGIN TRANSACTION;' 0A", "0: '-- phpMyAdmin SQL Dump' text*64", "0: '/*M!999999\\- enable the sandbox mode */' text*32"]},
+  {"type": "url", "what": "an Internet shortcut", "names": ["*.url"], "forms": ["0: '[InternetShortcut]' 0D 0A text*16", "0: '[{000214A0-0000-0000-C000-000000000046}]' 0D 0A", "0: '[InternetShortcut]' 0A text*16"]},
+  {"type": "desktop_ini", "what": "a desktop.ini of Windows", "names": ["desktop.ini"], "forms": ["0: '[.ShellClassInfo]' 0D 0A", "0: FF FE '[' 00 2E 00 53 00 68 00 65 00 6C 00 6C 00 43 00 6C 00 61 00 73 00 73 00 49 00 6E 00 66 00 6F 00 ']' 00 0D 00 0A 00"]},
+  {"type": "bat", "what": "a batch file", "names": ["*.bat", "*.cmd"], "forms": ["0: '@echo off' [0A 0D] text*32", "0: '@ECHO OFF' [0A 0D] text*32", "0: '@' [45 65] [43 63] [48 68] [4F 6F] ' ' [4F 6F] [46 66] [46 66] text*32"]},
+  {"type": "torrent", "what": "a torrent file", "names": ["*.torrent"], "forms": ["0: 'd8:announce' [31-39] [30-39] ':'", "0: 'd8:announce'"]}
+]

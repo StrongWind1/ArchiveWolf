@@ -1,0 +1,12 @@
+[toolchain]
+# The compiler of every build, on a developer's machine and in CI. It is the
+# version `rust-version` in Cargo.toml names as the supported floor (MSRV),
+# so one build checks both and CI has no separate MSRV job. When this pin
+# moves ahead of `rust-version`, that job comes back: the comment at the top
+# of the jobs in .github/workflows/ci.yml says the same.
+channel = "1.95.0"
+# Use the `default` profile so we don't pull miri / rustc-codegen-cranelift
+# which are not always published alongside every stable point release and
+# which we don't need for this project.
+profile = "default"
+components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]

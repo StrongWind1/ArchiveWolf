@@ -1,0 +1,101 @@
+name: Security
+
+run-name: Security -- ${{ github.event.head_commit.message || github.ref_name }}
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: 0 6 * * *
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+# Both tools are installed at a fixed version. Dependabot does not see versions inside a
+# `run` step: a bump is an edit of this file. The cache key carries the version, so a bump
+# builds the new one.
+
+jobs:
+  deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CARGO_DENY_VERSION: 0.20.2
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup show
+
+      - name: Cache cargo-deny binary and advisory DB
+        id: cache-cargo-deny
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-deny
+            ~/.cargo/advisory-db/
+          key: ubuntu-cargo-deny-${{ env.CARGO_DENY_VERSION }}
+
+      - name: Install cargo-deny
+        if: steps.cache-cargo-deny.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cargo install cargo-deny --version "${CARGO_DENY_VERSION}" --locked
+
+      - name: cargo deny check
+        run: |
+          set -euo pipefail
+          cargo deny --locked check
+
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CARGO_AUDIT_VERSION: 0.22.2
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup show
+
+      - name: Cache cargo-audit binary
+        id: cache-cargo-audit
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-audit
+            ~/.cargo/advisory-db/
+          key: ubuntu-cargo-audit-${{ env.CARGO_AUDIT_VERSION }}
+
+      - name: Install cargo-audit
+        if: steps.cache-cargo-audit.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cargo install cargo-audit --version "${CARGO_AUDIT_VERSION}" --locked
+
+      - name: cargo audit
+        run: |
+          set -euo pipefail
+          cargo audit --deny warnings

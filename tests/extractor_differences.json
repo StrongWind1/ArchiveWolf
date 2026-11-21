@@ -1,0 +1,97 @@
+[
+  {
+    "fixture": "pseudo/edge_libzip_empty-pkware.zip",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "an empty entry behind an encryption header is encrypted, not pseudo-encrypted, and gets the line that tests its header"
+  },
+  {
+    "fixture": "pseudo/gen_infozip_empty.zip",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "an empty entry behind an encryption header is encrypted, not pseudo-encrypted, and gets the line that tests its header"
+  },
+  {
+    "fixture": "pseudo/gen_own_zc_empty_only.zip",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "an empty entry behind an encryption header is encrypted, not pseudo-encrypted, and gets the line that tests its header"
+  },
+  {
+    "fixture": "regress/zip/zip64_offset_only.zip",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "a ZIP64 extra field that holds the offset alone is read by which header fields are marked, so the entry gets its line"
+  },
+  {
+    "fixture": "regress/zip/aes_directory_entry.zip",
+    "forms": [
+      "hash"
+    ],
+    "why": "a directory entry never ranks before an entry with data, so the archive gets a line"
+  },
+  {
+    "fixture": "regress/rar/rar3_no_salt.rar",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "a RAR 3 entry without a salt has no line: the line format cannot say that there is none"
+  },
+  {
+    "fixture": "regress/rar/rar4_hp_vol.part1.rar",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "the encrypted headers of a volume written by RAR 3.10 or later end in a 20-byte end block, and the line carries the 32-byte form"
+  },
+  {
+    "fixture": "regress/rar/rar4_hp_vol.part2.rar",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "a later volume is an archive and gives the line it holds"
+  },
+  {
+    "fixture": "regress/rar/rar5_p_vol.part2.rar",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "a later volume is an archive, and an entry that continues from the volume before gives a line from its check value"
+  },
+  {
+    "fixture": "regress/rar/service_zero_check_value.rar",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "a zeroed check value on a service record is not usable, so the line comes from the next entry"
+  },
+  {
+    "fixture": "unknown-pw/edge_rarpar_test_read_format_rar5_only_crypt_exfld.rar",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "packed data that is not whole cipher blocks: mode 46800 refuses the line, so none is written"
+  },
+  {
+    "fixture": "regress/7z/weak_first.7z",
+    "forms": [
+      "hash",
+      "hash --all"
+    ],
+    "why": "the folder whose line proves most gives the line, and a CRC-32 over fewer than four bytes ranks last"
+  }
+]

@@ -1,0 +1,88 @@
+[graph]
+all-features = true
+no-default-features = false
+
+[output]
+feature-depth = 3
+
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+ignore = []
+maximum-db-staleness = "P1D"
+unmaintained = "all"
+unsound = "all"
+unused-ignored-advisory = "deny"
+yanked = "deny"
+
+[licenses]
+allow = ["Apache-2.0", "MIT", "Unicode-3.0"]
+unused-allowed-license = "deny"
+confidence-threshold = 0.95
+
+# The crate itself is "Apache-2.0 AND UnRAR AND Zlib AND Info-ZIP": its RAR code that follows
+# the UnRAR source is under LICENSE-UNRAR.txt, and the packers of its known-plaintext attack
+# are ports of the Deflate of zlib and of Info-ZIP zip, under the zlib licence and
+# LICENSE-INFOZIP.txt. Allowed for this crate only, never for a dependency.
+[[licenses.exceptions]]
+crate = "archivewolf"
+allow = ["UnRAR", "Zlib", "Info-ZIP"]
+
+# The key search of `attack zip-crypto`, a crate of this repository: its reduction and its
+# reference kernel are the port of bkcrack-rs.
+[[licenses.exceptions]]
+crate = "archivewolf-zip-crypto"
+allow = ["Zlib"]
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+highlight = "all"
+skip = [
+    { crate = "syn@2", reason = "tracing-attributes still on syn 2, clap/serde on syn 3" },
+]
+
+[[bans.deny]]
+crate = "openssl"
+wrappers = []
+
+[[bans.deny]]
+crate = "openssl-sys"
+wrappers = []
+
+# No dependency compiles C: the README says so, and a test holds Cargo.lock to it. These are
+# the build helpers a crate needs to do that.
+[[bans.deny]]
+crate = "cc"
+wrappers = []
+
+[[bans.deny]]
+crate = "cmake"
+wrappers = []
+
+[[bans.deny]]
+crate = "pkg-config"
+wrappers = []
+
+[[bans.deny]]
+crate = "bindgen"
+wrappers = []
+
+[[bans.deny]]
+crate = "vcpkg"
+wrappers = []
+
+[[bans.deny]]
+crate = "nasm-rs"
+wrappers = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+
+[sources.allow-org]
+github = []
+gitlab = []
+bitbucket = []

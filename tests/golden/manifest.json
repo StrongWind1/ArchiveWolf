@@ -1,0 +1,379 @@
+{
+  "about": "Expected hash lines, byte for byte, for one fixture of every tag and every shape of line the fixtures give. A case is named after its scheme. The line of a case is in the file CASE.line beside this one and is what `archivewolf hash --mode MODE tests/fixtures/FIXTURE` writes. tests/golden_lines_test.rs compares them in the default test run. A line changes only with its format (section 7.6): record it again, compare it with the extractor again, crack it again, and say so under evidence.",
+  "evidence": {
+    "recorded": "2026-11-18, from archivewolf at commit 22314e7.",
+    "extractors": "Each line is the line the extractor of the hashcat fork writes for the same fixture: tools/zip2hashcat.py at feat/zip-modes 82a6718, tools/rar2hashcat.py at feat/rar-modes 0c9e37c, tools/7z2hashcat.py at feat/7z-modes 75a527f. Compared on 2026-11-18 by `make test-extractors` (tests/extractor_identity_test.rs), which compares them again on every run.",
+    "cracks": "`make test-hashcat` (tests/hashcat_crack_test.rs) cracks every line whose case says crack: yes. Run on 2026-11-19 against a hashcat built from the three branches of the fork merged: 39 lines cracked and none failed. The crack_record of a case quotes an earlier record that names its fixture."
+  },
+  "lines": [
+    {
+      "case": "zip-crypto-deflate",
+      "fixture": "zip-crypto/noradi.zip",
+      "mode": 46100,
+      "tag": "$zip$1$",
+      "why": "A deflate stream that is in the line whole, 86 bytes, behind one header whose check byte is the top byte of the CRC-32: the line a cracker settles by inflating. Picked from the small deflate fixtures because the password of this one is recorded as found with mode 46100.",
+      "crack_record": "tests/fixtures/FIXTURES.md (ZIP passwords corrected on 2026-11-14): the password of this archive was found with hashcat mode 46100 and confirmed by unpacking. The line of that run was not kept, so it is not a crack of these bytes.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-crypto-stored-shared-checks",
+      "fixture": "zip-crypto/stored.zip",
+      "mode": 46100,
+      "tag": "$zip$1$",
+      "why": "A stored entry of 6 bytes, tested by its CRC-32, with the headers of the two other entries of the archive beside it: three checks, each with the file-time byte and the CRC byte as its alternative, as an archive with data descriptors needs. 136 characters.",
+      "crack_record": "tests/fixtures/FIXTURES.md (ZIP passwords corrected on 2026-11-14): the password of this archive was found with hashcat mode 46100 and confirmed by unpacking. The line of that run was not kept, so it is not a crack of these bytes.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-crypto-check16",
+      "fixture": "zip-crypto/gen_own_zc_pkzip1_twobyte.zip",
+      "mode": 46100,
+      "tag": "$zip$1$",
+      "why": "The only fixture marked as made by version 1.x, so the only one whose checks are two bytes wide: four hex digits behind each header. Two stored entries, of 300 and of 2 bytes.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-crypto-eight-checks",
+      "fixture": "zip-crypto/gen_own_zc_eight_stored.zip",
+      "mode": 46100,
+      "tag": "$zip$1$",
+      "why": "Ten stored entries: the line carries the limit of eight checks and the 20 bytes of the first entry. The only fixture that reaches the limit.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-crypto-signature",
+      "fixture": "zip-crypto/gen_own_zc_bzip2.zip",
+      "mode": 46100,
+      "tag": "$zip$1$",
+      "why": "bzip2: the line carries the first 32 bytes of a stream of 9,147, and the signature in them is what is tested. It stands for xz as well, whose line has the same shape. 130 characters.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-crypto-header-only",
+      "fixture": "zip-crypto/gen_7z_zipcrypto_lzma.zip",
+      "mode": 46100,
+      "tag": "$zip$1$",
+      "why": "LZMA, which hashcat does not unpack: the data field is empty and the check byte is all the line tests. The weak form of the line, 66 characters.",
+      "crack_record": "None names this fixture.",
+      "crack": "no: the line tests one byte, so a wrong word of the list passes once in 256 and a crack would prove nothing"
+    },
+    {
+      "case": "zip-winzip-128",
+      "fixture": "zip-winzip/rawzip_aes128.zip",
+      "mode": 46200,
+      "tag": "$zip$2$",
+      "why": "AES-128: strength 1 and a salt of 8 bytes. AE-2, 5 bytes of deflate with their authentication code. The smallest AES-128 line that carries data.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-winzip-192",
+      "fixture": "zip-winzip/rawzip_aes192.zip",
+      "mode": 46200,
+      "tag": "$zip$2$",
+      "why": "AES-192: strength 2 and a salt of 12 bytes. The smallest AES-192 line of the fixtures.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-winzip-256",
+      "fixture": "zip-winzip/gen_7z_aes256_tiny.zip",
+      "mode": 46200,
+      "tag": "$zip$2$",
+      "why": "AES-256: strength 3 and a salt of 16 bytes. A stored entry of two bytes written by 7-Zip.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-winzip-ae1",
+      "fixture": "zip-winzip/rawzip_aes256-ae1.zip",
+      "mode": 46200,
+      "tag": "$zip$2$",
+      "why": "AE-1: extra field 0x9901 of the entry says version 1, and the entry keeps its CRC-32. The line has no field for that and is the line of AE-2; this one holds it so. 5 bytes of deflate under AES-256.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-winzip-empty",
+      "fixture": "zip-winzip/gen_own_aes256_empty.zip",
+      "mode": 46200,
+      "tag": "$zip$2$",
+      "why": "An empty entry: a packed size of 0 and no data, and still an authentication code to test.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-pkware-aes128-iv",
+      "fixture": "zip-pkware/gen_ses_aes128_iv_stored.zip",
+      "mode": 46300,
+      "tag": "$zip$3$",
+      "why": "PKWARE strong encryption with AES-128, the line of mode 46300, with the vector the decryption header stores: 32 hex digits. A stored entry.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-pkware-aes128-no-iv",
+      "fixture": "zip-pkware/gen_ses_aes128_noiv_deflate.zip",
+      "mode": 46300,
+      "tag": "$zip$3$",
+      "why": "AES-128 without a stored vector: the CRC-32 and the unpacked size stand in for it, 24 hex digits. A deflate entry.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-pkware-aes192-iv",
+      "fixture": "zip-pkware/gen_ses_aes192_iv_deflate.zip",
+      "mode": 46310,
+      "tag": "$zip$3$",
+      "why": "AES-192, the line of mode 46310, with a stored vector. A deflate entry.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-pkware-aes192-no-iv",
+      "fixture": "zip-pkware/gen_ses_aes192_noiv_stored.zip",
+      "mode": 46310,
+      "tag": "$zip$3$",
+      "why": "AES-192 without a stored vector. A stored entry.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-pkware-aes256-iv",
+      "fixture": "zip-pkware/gen_ses_aes256_iv_deflate.zip",
+      "mode": 46320,
+      "tag": "$zip$3$",
+      "why": "AES-256, the line of mode 46320, with a stored vector. A deflate entry.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-pkware-aes256-no-iv",
+      "fixture": "zip-pkware/gen_ses_aes256_noiv_stored.zip",
+      "mode": 46320,
+      "tag": "$zip$3$",
+      "why": "AES-256 without a stored vector. A stored entry.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "zip-pkware-securezip",
+      "fixture": "unknown-pw/zip-forensic_securezip-strong-aes256-pw.zip",
+      "mode": 46320,
+      "tag": "$zip$3$",
+      "why": "The one strong encryption fixture that PKWARE's SecureZIP wrote; every other one comes from the generator of the hashcat test modules. AES-256, a stored vector, and validation data of 262 hex digits where the generator writes 32.",
+      "crack_record": "None names this fixture.",
+      "crack": "no: its password is not known"
+    },
+    {
+      "case": "rar-15-stored",
+      "fixture": "rar-15/rar15-password-stored.rar",
+      "mode": 46500,
+      "tag": "$rar$15$",
+      "why": "RAR 1.5, a stored entry (method 30) of 87 bytes: the case hashcat checks on the device. From the junrar test files, 207 characters.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-15-packed",
+      "fixture": "rar-15/rar15-password-compressed.rar",
+      "mode": 46500,
+      "tag": "$rar$15$",
+      "why": "RAR 1.5, the same 87 bytes packed (method 33) to 84: the entry has to be unpacked before its CRC-32 can be compared.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-20-stored",
+      "fixture": "rar-20/rar20-password-stored.rar",
+      "mode": 46600,
+      "tag": "$rar$20$",
+      "why": "RAR 2.0, a stored entry (method 30): 87 bytes in 96 bytes of block cipher data. From the junrar test files, 225 characters.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-20-packed",
+      "fixture": "rar-20/rar20-password-compressed.rar",
+      "mode": 46600,
+      "tag": "$rar$20$",
+      "why": "RAR 2.0, a packed entry (method 33): unpacked before its CRC-32 can be compared.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-30-headers",
+      "fixture": "rar-30/v420_hp_m0.rar",
+      "mode": 46700,
+      "tag": "$rar$30$",
+      "why": "RAR 3 to 4 with encrypted headers (rar -hp): type 0, the salt and the 16 encrypted bytes of the end block, whose plaintext is known. Every such line of the fixtures is 83 characters; this is the archive named for RAR 4.20 and stored entries.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-30-data",
+      "fixture": "rar-30/ttzip-core_test_read_format_rar4_encrypted.rar",
+      "mode": 46700,
+      "tag": "$rar$30$",
+      "why": "RAR 3 to 4 entry data (rar -p): type 1, 32 bytes packed with method 33, to be decrypted, unpacked and compared with the CRC-32. The smallest entry line of the fixtures, 116 characters. It is the line of b.txt, whose password is the one passwords.json has. No stored entry (method 30) is recorded: the three fixtures that give one give 868,794 characters each.",
+      "crack_record": "None names this line. tests/fixtures/FIXTURES.md records that the password of the other encrypted entry of this archive, d.txt, was found with hashcat mode 46700.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-50-data-check",
+      "fixture": "rar-50/v500_p_m0.rar",
+      "mode": 46800,
+      "tag": "$rar$50$",
+      "why": "RAR 5 entry (rar -p) whose header carries the password check value: type 0, nothing but salt, round count and the 8 bytes of the check value. The file is named for RAR 5.00. 109 characters.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-50-headers-check",
+      "fixture": "rar-50/v500_hp_m3.rar",
+      "mode": 46800,
+      "tag": "$rar$50$",
+      "why": "RAR 5 with encrypted headers (rar -hp): type 0 from the encryption header of the archive. The same shape as the line of an entry, read from another place.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-50-data-crc32",
+      "fixture": "rar-50/nocheck_st_crc.rar",
+      "mode": 46800,
+      "tag": "$rar$50$",
+      "why": "RAR 5 entry without a check value: type 1, check type 0, a stored entry of 300 bytes to decrypt and compare with its CRC-32.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-50-data-crc32-keyed",
+      "fixture": "rar-50/nocheck_st_crcmac.rar",
+      "mode": 46800,
+      "tag": "$rar$50$",
+      "why": "Type 1, check type 1: the CRC-32 the archive stores is keyed with the password. The same stored entry of 300 bytes.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-50-data-blake2sp",
+      "fixture": "rar-50/nocheck_st_b2.rar",
+      "mode": 46800,
+      "tag": "$rar$50$",
+      "why": "Type 1, check type 2: a BLAKE2sp digest of 64 hex digits in the place of the CRC-32.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-50-data-blake2sp-keyed",
+      "fixture": "rar-50/nocheck_st_b2mac.rar",
+      "mode": 46800,
+      "tag": "$rar$50$",
+      "why": "Type 1, check type 3: the BLAKE2sp digest keyed with the password.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-50-data-packed",
+      "fixture": "rar-50/nocheck_m3_crc.rar",
+      "mode": 46800,
+      "tag": "$rar$50$",
+      "why": "Type 1 with a packed entry (method 3): 5,632 bytes that have to be unpacked before the CRC-32 can be compared. The smallest packed entry without a check value among the fixtures whose password is recorded, and the longest line recorded here: 11,374 characters.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "rar-50-headers-nocheck",
+      "fixture": "rar-50/nocheck_hp_m0.rar",
+      "mode": 46800,
+      "tag": "$rar$50$",
+      "why": "RAR 5 encrypted headers without a check value: type 1, check type 4, with 256 bytes of encrypted header blocks, tested by what they decrypt to.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "7z-aes-stored",
+      "fixture": "7z-aes/7z_stored.7z",
+      "mode": 46900,
+      "tag": "$7z$*",
+      "why": "A stored folder: no coder behind the cipher, 28 bytes, tested by the CRC-32. 133 characters.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "7z-aes-lzma2",
+      "fixture": "7z-aes/7z_lzma2.7z",
+      "mode": 46900,
+      "tag": "$7z$*",
+      "why": "LZMA2, what 7-Zip writes when it is not told otherwise: one coder in the chain. The same 28 bytes as the stored line.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "7z-aes-lzma-short-iv",
+      "fixture": "7z-aes/bla.encrypted.7z",
+      "mode": 46900,
+      "tag": "$7z$*",
+      "why": "LZMA with its five property bytes, and a vector of 8 bytes where 7-Zip now stores 16. The smallest such line whose password is known.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "7z-aes-filter",
+      "fixture": "7z-aes/bcj_lzma2.7z",
+      "mode": 46900,
+      "tag": "$7z$*",
+      "why": "LZMA2 and then the x86 branch converter, in a folder of two files: two coders in the chain, and a CRC-32 that covers the first 28 of 74 bytes.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "7z-aes-bcj2",
+      "fixture": "7z-aes/bcj2_enc.7z",
+      "mode": 46900,
+      "tag": "$7z$*",
+      "why": "BCJ2: four packed streams, each with a vector and a chain of its own, joined by the BCJ2 coder. The smallest BCJ2 line, 407 characters.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "7z-aes-headers",
+      "fixture": "7z-aes/7z_hdr_lzma2.7z",
+      "mode": 46900,
+      "tag": "$7z$*",
+      "why": "Encrypted header (7zz -mhe=on): the line is made from the header, which is stored, with the CRC-32 the archive keeps for it. 293 characters.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "7z-aes-headers-packed",
+      "fixture": "7z-aes/gen_7z_hdr_solid.7z",
+      "mode": 46900,
+      "tag": "$7z$*",
+      "why": "Encrypted header that 7-Zip packed with LZMA before it encrypted it: a header line with a coder in its chain.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "7z-aes-headers-nocrc",
+      "fixture": "7z-aes/gen_py7zr_copy_hdr.7z",
+      "mode": 46900,
+      "tag": "$7z$*",
+      "why": "Encrypted header written by py7zr, which stores no CRC-32 for it: the CRC field holds the word header, and a candidate is tested by reading what it decrypts as a 7z header.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    },
+    {
+      "case": "7z-aes-salt",
+      "fixture": "7z-aes/salted.7z",
+      "mode": 46900,
+      "tag": "$7z$*",
+      "why": "A salt of 4 bytes and 2^15 rounds, where 7-Zip writes no salt and 2^19. The only fixture with a salt; it is synthetic.",
+      "crack_record": "None names this fixture.",
+      "crack": "yes"
+    }
+  ]
+}

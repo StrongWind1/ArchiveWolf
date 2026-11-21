@@ -1,0 +1,324 @@
+name: CI
+
+run-name: CI -- ${{ github.event.head_commit.message || github.ref_name }}
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+# One configuration is built. The crate has no [features] table, so a feature matrix or a
+# feature powerset would build the same thing again, and rust-toolchain.toml pins the compiler
+# that `rust-version` in Cargo.toml names, so an MSRV job would too. Bring them back when a
+# feature is added or the two versions part.
+#
+# Every tool is installed at a fixed version. Dependabot does not see versions inside a `run`
+# step: a bump is an edit of this file (and of release.yml, which installs the test tools too).
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup show
+
+      - name: cargo fmt --check
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup show
+
+      - name: Cache cargo build artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ubuntu-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/rust-toolchain.toml') }}
+          restore-keys: |
+            ubuntu-cargo-clippy-
+            ubuntu-cargo-
+
+      - name: cargo clippy
+        run: |
+          set -euo pipefail
+          cargo clippy --locked --workspace --all-targets -- --deny warnings
+
+  test:
+    name: test (${{ matrix.suite }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout-minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Every test that is not marked #[ignore].
+          - suite: default
+            timeout-minutes: 30
+          # `make test-rar-13`: the RAR 1.3 key searches that are too slow for the default run.
+          # Measured after the release build: three and a half minutes on 16 CPUs, nine on 4.
+          - suite: rar-13
+            timeout-minutes: 45
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup show
+
+      - name: Cache cargo build artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ubuntu-cargo-test-${{ matrix.suite }}-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/rust-toolchain.toml') }}
+          restore-keys: |
+            ubuntu-cargo-test-${{ matrix.suite }}-
+            ubuntu-cargo-
+
+      # Tests may run `7zz` and `unrar` to compare with: the tool itself starts no other program.
+      # The runner has neither in a version that knows every fixture, so the official builds
+      # are fetched and checked against their hashes.
+      - name: Install 7-Zip and UnRAR
+        env:
+          SEVENZIP_URL: https://github.com/ip7z/7zip/releases/download/26.06/7z2606-linux-x64.tar.xz
+          SEVENZIP_SHA256: 2b539cf067b2ad48e1baa5093dbaa8818b73542d1222a0ffde9dc5f2922ea62e
+          UNRAR_URL: https://www.rarlab.com/rar/rarlinux-x64-723.tar.gz
+          UNRAR_SHA256: 759b4b6aa0d9f77131882162951193f3a0e54bf60e1d8dc4255aa308accab588
+        run: |
+          set -euo pipefail
+          tools="${RUNNER_TEMP}/archive-tools"
+          mkdir -p "${tools}"
+          curl -fsSL --retry 3 -o "${RUNNER_TEMP}/7z.tar.xz" "${SEVENZIP_URL}"
+          curl -fsSL --retry 3 -o "${RUNNER_TEMP}/rar.tar.gz" "${UNRAR_URL}"
+          echo "${SEVENZIP_SHA256}  ${RUNNER_TEMP}/7z.tar.xz" | sha256sum --check --strict
+          echo "${UNRAR_SHA256}  ${RUNNER_TEMP}/rar.tar.gz" | sha256sum --check --strict
+          tar -xf "${RUNNER_TEMP}/7z.tar.xz" -C "${tools}" 7zz
+          tar -xzf "${RUNNER_TEMP}/rar.tar.gz" -C "${tools}" --strip-components=1 rar/unrar
+          echo "${tools}" >> "${GITHUB_PATH}"
+
+      # The build nextest publishes, checked against its hash. The same pin is in release.yml.
+      - name: Install cargo-nextest
+        env:
+          NEXTEST_URL: https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-x86_64-unknown-linux-gnu.tar.gz
+          NEXTEST_SHA256: 1d4ce302b820c41f4b89c5fb9bce45f0f0c94882c1cf08fc360caf08be6e7df4
+        run: |
+          set -euo pipefail
+          tools="${RUNNER_TEMP}/nextest"
+          mkdir -p "${tools}"
+          curl -fsSL --retry 3 -o "${RUNNER_TEMP}/nextest.tar.gz" "${NEXTEST_URL}"
+          echo "${NEXTEST_SHA256}  ${RUNNER_TEMP}/nextest.tar.gz" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/nextest.tar.gz" -C "${tools}" cargo-nextest
+          echo "${tools}" >> "${GITHUB_PATH}"
+
+      # The `ci` profile of .config/nextest.toml: per-test timeouts, no fail-fast, a JUnit report.
+      - name: cargo nextest run
+        if: matrix.suite == 'default'
+        run: |
+          set -euo pipefail
+          cargo nextest run --locked --profile ci --workspace --all-targets
+
+      # The Makefile names the tests. A filter that matches none fails the job.
+      - name: make test-rar-13
+        if: matrix.suite == 'rar-13'
+        run: |
+          set -euo pipefail
+          make test-rar-13 NEXTEST="cargo nextest run --locked --profile ci --no-tests fail"
+
+      - name: Upload the JUnit report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: junit-${{ matrix.suite }}
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: warn
+
+  doc:
+    name: rustdoc
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup show
+
+      - name: cargo doc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          set -euo pipefail
+          cargo doc --locked --workspace --no-deps
+
+  cross-platform-check:
+    name: cross-check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup show
+
+      - name: Cache cargo build artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-cross-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/rust-toolchain.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-cross-
+            ${{ runner.os }}-cargo-
+
+      - name: cargo check
+        run: |
+          set -euo pipefail
+          cargo check --locked --workspace --all-targets
+
+  hygiene:
+    name: hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      YAMLLINT_VERSION: 1.38.0
+      EDITORCONFIG_CHECKER_VERSION: 3.11.1
+      ACTIONLINT_VERSION: 1.7.12
+      TAPLO_VERSION: 0.10.0
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup show
+
+      - name: Cache the taplo binary
+        id: cache-taplo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cargo/bin/taplo
+          key: ubuntu-taplo-${{ env.TAPLO_VERSION }}
+
+      - name: Install taplo
+        if: steps.cache-taplo.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cargo install taplo-cli --version "${TAPLO_VERSION}" --locked
+
+      - name: Install yamllint, editorconfig-checker and actionlint
+        run: |
+          set -euo pipefail
+          pip install --user --quiet "yamllint==${YAMLLINT_VERSION}" "editorconfig-checker==${EDITORCONFIG_CHECKER_VERSION}"
+          go install "github.com/rhysd/actionlint/cmd/actionlint@v${ACTIONLINT_VERSION}"
+
+      # The targets of `make hygiene` but markdownlint, which the next step runs.
+      - name: Run hygiene targets
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/go/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+          make editorconfig yamllint actionlint taplo
+
+      # markdownlint-cli2 0.24.0 with its dependencies, as the action bundles them at this
+      # commit. `npm install -g` of a pinned version would still resolve them anew on each run.
+      # The files and rules are those of .markdownlint-cli2.jsonc, as for `make markdownlint`.
+      - name: markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34  # v25.0.0
+
+  unused-deps:
+    name: unused deps (machete)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CARGO_MACHETE_VERSION: 0.9.2
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup show
+
+      - name: Cache the cargo-machete binary
+        id: cache-cargo-machete
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cargo/bin/cargo-machete
+          key: ubuntu-cargo-machete-${{ env.CARGO_MACHETE_VERSION }}
+
+      - name: Install cargo-machete
+        if: steps.cache-cargo-machete.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cargo install cargo-machete --version "${CARGO_MACHETE_VERSION}" --locked
+
+      - name: cargo machete
+        run: |
+          set -euo pipefail
+          cargo machete

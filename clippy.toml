@@ -1,0 +1,26 @@
+# Clippy configuration.
+#
+# Lint levels are declared in Cargo.toml [lints.*]. This file tunes thresholds
+# and the test-only relaxations that keep test files readable without
+# loosening the rules for production code.
+
+# --- Complexity thresholds ---------------------------------------------------
+# Clippy's defaults hold for the number of arguments (7), the length of a
+# function (100 lines) and the booleans among the parameters of a function (3),
+# so they are not set here. The three below are above the default, each at what
+# the largest case in the code needs today (measured 2026-11-19 over every
+# target): they may be lowered when that case is simplified, never raised.
+cognitive-complexity-threshold = 29
+type-complexity-threshold = 412
+max-struct-bools = 5
+
+# --- Strictness settings -----------------------------------------------------
+avoid-breaking-exported-api = false
+check-private-items = true
+
+# --- Test-only relaxations ----------------------------------------------------
+allow-unwrap-in-consts = true
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-panic-in-tests = true

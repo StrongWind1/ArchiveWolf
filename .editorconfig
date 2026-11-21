@@ -1,0 +1,79 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+indent_style = space
+indent_size = 4
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+# rustfmt owns indentation for Rust files. editorconfig-checker enforces
+# charset, LF, final newline, and trailing whitespace only.
+[*.rs]
+indent_style = unset
+indent_size = unset
+
+[*.{yml,yaml,toml,json}]
+indent_style = space
+indent_size = 2
+
+# Markdown embeds code samples and tables with varying indentation.
+# Trailing whitespace is sometimes meaningful (line breaks).
+[*.md]
+trim_trailing_whitespace = false
+indent_style = unset
+indent_size = unset
+
+[*.css]
+indent_style = space
+indent_size = 2
+
+# Make uses tabs for recipes but spaces for continuation and variable lines.
+# Generic indent checkers can't distinguish the two, so indent is unset.
+[Makefile]
+indent_style = unset
+indent_size = unset
+
+# Vendored license text: never reformatted.
+[{LICENSE,LICENSE-UNRAR.txt,LICENSE-BKCRACK.txt,LICENSE-INFOZIP.txt}]
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset
+
+# Pre-commit hook is a shell script with 2-space indent.
+[.githooks/*]
+indent_style = space
+indent_size = 2
+
+# Binary test fixture archives: skip all checks.
+[*.{zip,ZIP,rar,RAR,7z,sfx,exe,EXE}]
+charset = unset
+end_of_line = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset
+indent_style = unset
+indent_size = unset
+
+# Binary test data: skip all checks.
+[*.bin]
+charset = unset
+end_of_line = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset
+indent_style = unset
+indent_size = unset
+
+# Compiler diagnostic test fixtures: exact whitespace matters.
+[*.stderr]
+indent_style = unset
+indent_size = unset
+
+# JSONC config files use 2-space indent.
+[*.jsonc]
+indent_style = space
+indent_size = 2
