@@ -1,64 +1,58 @@
-# ArchiveWolf
+<h1 align="center">ArchiveWolf</h1>
 
-Analyser and hashcat hash converter for encrypted ZIP, RAR and 7-Zip archives.
+<p align="center"><strong>See how a ZIP, RAR or 7-Zip archive is encrypted. Get hash lines for the hashcat fork. Recover RAR 1.3 keys, and ZipCrypto keys from known plaintext.</strong></p>
 
-[![CI](https://github.com/StrongWind1/ArchiveWolf/actions/workflows/ci.yml/badge.svg)](https://github.com/StrongWind1/ArchiveWolf/actions/workflows/ci.yml)
-[![Licence: Apache-2.0 AND UnRAR AND Zlib AND Info-ZIP](https://img.shields.io/badge/licence-Apache--2.0%20AND%20UnRAR%20AND%20Zlib%20AND%20Info--ZIP-blue.svg)](#licence)
+<p align="center">
+  <a href="https://github.com/StrongWind1/ArchiveWolf/actions/workflows/ci.yml"><img src="https://github.com/StrongWind1/ArchiveWolf/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="Cargo.toml"><img src="https://img.shields.io/badge/msrv-1.95-informational" alt="MSRV 1.95"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/License-Apache--2.0_AND_UnRAR_AND_Zlib_AND_Info--ZIP-blue.svg" alt="License: Apache-2.0 AND UnRAR AND Zlib AND Info-ZIP"></a>
+</p>
 
-ArchiveWolf answers three questions about an encrypted archive, with one command for each:
+<p align="center">
+  <a href="#installation">Installation</a> &bull;
+  <a href="#quick-start">Quick start</a> &bull;
+  <a href="#usage">Usage</a> &bull;
+  <a href="#supported-formats-and-schemes">Formats and schemes</a>
+</p>
 
-| Command | Question | Answer |
-| --- | --- | --- |
-| [`info`](#info) | What is encrypted, and how? | The scheme and variant of every encrypted entry, with its parameters, and findings such as pseudo-encryption or a scheme that is weak |
-| [`hash`](#hash) | What does hashcat need to test passwords against it? | A hash line for each scheme in the archive, for hashcat modes 46100 to 46900 |
-| [`attack rar-13`](#attack-rar-13), [`attack zip-crypto`](#attack-zip-crypto) | Can it be opened without the password? | For the two schemes that fall without it: the key of a RAR 1.3 archive, and the three keys of a ZIP archive under traditional encryption |
+---
 
-The tool takes no password and tests none, starts no other program and unpacks nothing. It reads archives that may be built to break it, and is written for that.
+ArchiveWolf answers three questions about an encrypted ZIP, RAR or 7-Zip archive, with one command for each: `info` says what is encrypted and how, `hash` writes the lines hashcat needs to test passwords against it, and `attack` recovers the keys of the two schemes that fall without the password. It takes no password and tests none, starts no other program and unpacks nothing. It reads archives that may be built to break it, and is written for that.
 
 > **The hash lines need a hashcat fork.** They are read only by hashcat modes 46100 to 46900, which live in [StrongWind1/hashcat](https://github.com/StrongWind1/hashcat) on the branches `feat/zip-modes`, `feat/rar-modes` and `feat/7z-modes`. Upstream hashcat does not read the lines, and neither does John the Ripper.
 
-## Contents
+## Example
 
-- [Supported formats and schemes](#supported-formats-and-schemes)
-- [Getting started](#getting-started)
-- [Usage](#usage)
-  - [info](#info)
-  - [hash](#hash)
-  - [attack rar-13](#attack-rar-13)
-  - [attack zip-crypto](#attack-zip-crypto)
-  - [Exit status](#exit-status)
-- [What it does not do](#what-it-does-not-do)
-- [Handling untrusted archives](#handling-untrusted-archives)
-- [Releases](#releases)
-- [Development](#development)
-- [Security](#security)
-- [Related tools](#related-tools)
-- [Disclaimer](#disclaimer)
-- [Licence](#licence)
+```console
+$ archivewolf info tests/fixtures/zip-winzip/gen_own_mixed_zc_aes.zip
+tests/fixtures/zip-winzip/gen_own_mixed_zc_aes.zip   ZIP, 2 entries
+  headers   readable
+  entries   2 of 2 entries encrypted; coverage all
+  schemes   mixed
+            zip-crypto:check8  ZipCrypto, check byte 8 bits, CRC-32 (1 entry, 1 key group)
+            zip-winzip:256:ae2  AE-2, AES-256, PBKDF2-HMAC-SHA1 1000, verifier 16 bits, authentication code 80 bits (1 entry, 1 key group)
+  findings  more than one scheme in one archive: zip-crypto, zip-winzip
+            zc.txt: zip-crypto falls without the password to 12 bytes of known plaintext
+  line      $zip$1$, hashcat mode 46100, exact, from zc.txt
+            $zip$2$, hashcat mode 46200, exact, from aes.txt
+```
 
-## Supported formats and schemes
+One archive, two schemes: `info` names the variant of each with its parameters, finds that the `zip-crypto` entry falls to known plaintext, and lists the two lines `hash` writes, for modes 46100 and 46200.
 
-| Format | Scheme | What it is | Hash line | hashcat mode |
-| --- | --- | --- | --- | --- |
-| ZIP | `zip-crypto` | ZIP traditional encryption (ZipCrypto) | `$zip$1$` | 46100 |
-| ZIP | `zip-winzip` | WinZip AES, AE-1 and AE-2, with 128, 192 and 256 bits | `$zip$2$` | 46200 |
-| ZIP | `zip-pkware` | PKWARE strong encryption with a password and AES-128, 192 or 256 | `$zip$3$` | 46300, 46310, 46320, by key size |
-| RAR | `rar-13` | RAR 1.3 and 1.4 | none | none: [`attack rar-13`](#attack-rar-13) |
-| RAR | `rar-15` | RAR 1.5 | `$rar$15$` | 46500 |
-| RAR | `rar-20` | RAR 2.0 | `$rar$20$` | 46600 |
-| RAR | `rar-30` | RAR 3.x to 4.x, encrypted entries and encrypted headers | `$rar$30$` | 46700 |
-| RAR | `rar-50` | RAR 5 and 7, encrypted entries and encrypted headers | `$rar$50$` | 46800 |
-| 7-Zip | `7z-aes` | AES-256, encrypted folders and encrypted headers | `$7z$*` | 46900 |
+## Features
 
-Every scheme has one ID. A variant of it is the ID with its scope (`data` or `headers`) and its qualifiers behind it, as in `rar-50:headers:check`. `info` prints these IDs, and the fixtures and the hashcat modes use the same ones. The table shows the common case of each scheme: `info` names the exact variant of every entry.
+- **What is encrypted, and how**: [`info`](#info) gives the scheme and variant of every encrypted entry with its parameters, and findings such as pseudo-encryption, mixed schemes or a scheme that is weak.
+- **Hash lines for the hashcat fork**: [`hash`](#hash) writes a line for each scheme in an archive, for modes 46100 to 46900, and says of every line what it proves.
+- **Keys without the password**: [`attack rar-13`](#attack-rar-13) searches the 2^23 keys of a RAR 1.3 archive, and [`attack zip-crypto`](#attack-zip-crypto) finds the three keys of ZIP traditional encryption from known plaintext. Both can write a copy of the archive without its password.
+- **ZipCrypto from the headers alone**: archives of Info-ZIP `zip`, some versions of WinRAR, minizip, Double Commander, several .NET libraries and others give their keys with no known byte of any file, because their encryption headers are not random ([which, and what each needs](#from-the-encryption-headers-alone)).
+- **Nine schemes in three formats**: ZipCrypto, WinZip AES and PKWARE strong encryption in ZIP, the five RAR ciphers from RAR 1.3 to RAR 7, and AES-256 in 7-Zip, with encrypted headers where the format has them. ZIP encryption to certificates is recognised too.
+- **Found by content, not by name**: also behind the program of a self-extracting archive, and a ZIP archive behind a script or as the last volume of a split set. Directories are walked.
+- **JSON for scripts**: `info`, `hash` and `attack zip-crypto` take `--json`. The JSON of `info` is the interface; its text layout is for people and may change.
+- **Built for hostile input**: no unsafe code in the crate that reads archives, no dependency that compiles C, no size taken on trust, memory that grows with the headers and not with the archive, and nothing from an archive that acts on the terminal ([details](#handling-untrusted-archives)).
 
-Two schemes fall without the password, and `attack` is for them: `rar-13`, by a search of its keys, and `zip-crypto`, from known plaintext or from its encryption headers. The keys of `zip-crypto` also go to hashcat, as `$zip$4$` lines for modes 46400 and 46410, which search the password that gives them.
+## Installation
 
-ZIP encryption to certificates is recognised and named. It gets no line, because no password opens it.
-
-## Getting started
-
-ArchiveWolf is unreleased: there are no tags, no crates.io release and no binaries to download yet. It is built from source.
+ArchiveWolf is unreleased: there are no tags, no crates.io release and no binaries to download yet. Build it from source:
 
 ```sh
 git clone https://github.com/StrongWind1/ArchiveWolf
@@ -69,12 +63,54 @@ cargo build --release
 
 The build needs Rust 1.95.0, which `rust-toolchain.toml` pins and `rustup` installs by itself. No dependency compiles C.
 
-The usual way through the tool is three steps:
+<details>
+<summary><strong>Planned release binaries and their verification</strong></summary>
+
+When a tag `vX.Y.Z` is pushed, `.github/workflows/release.yml` runs the tests, builds the files below and creates a draft release with them. No tag exists, so this list is what is planned:
+
+| File | Built for |
+| --- | --- |
+| `archivewolf-linux-x86_64` | `x86_64-unknown-linux-musl` |
+| `archivewolf-linux-arm64` | `aarch64-unknown-linux-musl` |
+| `archivewolf-macos-arm64` | `aarch64-apple-darwin` |
+| `archivewolf-macos-x86_64` | `x86_64-apple-darwin` |
+| `archivewolf-macos-universal` | The two macOS binaries in one file |
+| `archivewolf-windows-x86_64-msvc.exe` | `x86_64-pc-windows-msvc` |
+| `archivewolf-windows-x86_64-gnu.exe` | `x86_64-pc-windows-gnu` |
+| `archivewolf-windows-arm64-msvc.exe` | `aarch64-pc-windows-msvc` |
+| `SHA256SUMS` | The SHA-256 of every file above |
+| `SHA256SUMS.sigstore.json` | The cosign bundle for `SHA256SUMS`: the signature the workflow made, with its certificate |
+
+Once there is a release, verify the signature of `SHA256SUMS` first, with the tag in place of `vX.Y.Z`, and then the files against it:
 
 ```sh
-archivewolf info archive.zip                             # what is encrypted, and how
-archivewolf hash --mode 46100 archive.zip > 46100.hash   # the hash lines of one hashcat mode
-hashcat -m 46100 46100.hash wordlist.txt                 # with a hashcat built from the fork
+cosign verify-blob \
+  --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity https://github.com/StrongWind1/ArchiveWolf/.github/workflows/release.yml@refs/tags/vX.Y.Z \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+</details>
+
+## Quick start
+
+```sh
+# What is encrypted, and how
+archivewolf info archive.zip
+
+# The hash lines of one hashcat mode, kept in a file
+archivewolf hash --mode 46100 archive.zip > 46100.hash
+
+# Test passwords against them, with a hashcat built from the fork
+hashcat -m 46100 46100.hash wordlist.txt
+
+# The key of a RAR 1.3 archive, and a decrypted copy of it
+archivewolf attack rar-13 legacy.rar -o open.rar
+
+# The three keys of a ZipCrypto archive, and a copy of it without its password
+archivewolf attack zip-crypto archive.zip -o open.zip
 ```
 
 ## Usage
@@ -96,27 +132,33 @@ How paths are read:
 - A later volume of a set is an archive like any other and is reported with what it holds.
 - Archives are reported in the order of their paths, each one once.
 
-In the examples below, `archivewolf` stands for `./target/release/archivewolf`, run from the root of the repository on archives under `tests/fixtures`. The output is copied from that binary.
+In the examples, `archivewolf` stands for `./target/release/archivewolf`, run from the root of the repository on archives under `tests/fixtures`. The output is copied from that binary.
+
+### Supported formats and schemes
+
+| Format | Scheme | What it is | Hash line | hashcat mode |
+| --- | --- | --- | --- | --- |
+| ZIP | `zip-crypto` | ZIP traditional encryption (ZipCrypto) | `$zip$1$` | 46100 |
+| ZIP | `zip-winzip` | WinZip AES, AE-1 and AE-2, with 128, 192 and 256 bits | `$zip$2$` | 46200 |
+| ZIP | `zip-pkware` | PKWARE strong encryption with a password and AES-128, 192 or 256 | `$zip$3$` | 46300, 46310, 46320, by key size |
+| RAR | `rar-13` | RAR 1.3 and 1.4 | none | none: [`attack rar-13`](#attack-rar-13) |
+| RAR | `rar-15` | RAR 1.5 | `$rar$15$` | 46500 |
+| RAR | `rar-20` | RAR 2.0 | `$rar$20$` | 46600 |
+| RAR | `rar-30` | RAR 3.x to 4.x, encrypted entries and encrypted headers | `$rar$30$` | 46700 |
+| RAR | `rar-50` | RAR 5 and 7, encrypted entries and encrypted headers | `$rar$50$` | 46800 |
+| 7-Zip | `7z-aes` | AES-256, encrypted folders and encrypted headers | `$7z$*` | 46900 |
+
+Every scheme has one ID. A variant is the ID with its scope (`data` or `headers`) and its qualifiers behind it, as in `rar-50:headers:check`. `info` prints these IDs, and the fixtures and the hashcat modes use the same ones. The table shows the common case of each scheme; `info` names the exact variant of every entry.
+
+Two schemes fall without the password, and `attack` is for them: `rar-13`, by a search of its keys, and `zip-crypto`, from known plaintext or from its encryption headers. The keys of `zip-crypto` also go to hashcat, as `$zip$4$` lines for modes 46400 and 46410, which search the password that gives them.
+
+ZIP encryption to certificates is recognised and named. It gets no line, because no password opens it.
 
 ### info
 
-`info` prints one block for each archive: the container, whether its headers are readable or encrypted, how many entries are encrypted, each variant with its parameters, and findings. For every line `hash` would write, it names the tag of the line, its hashcat mode, what the line proves and the entry it comes from. It prints no hash line. For a 7-Zip archive the unit is the folder, which is what 7-Zip encrypts.
+`info` prints one block for each archive: the container, whether its headers are readable or encrypted, how many entries are encrypted, each variant with its parameters, and findings. For every line `hash` would write, it names the tag of the line, its hashcat mode, what the line proves and the entry it comes from. It prints no hash line. For a 7-Zip archive the unit is the folder, which is what 7-Zip encrypts. The [example](#example) at the top is one such block.
 
-```console
-$ archivewolf info tests/fixtures/zip-winzip/gen_own_mixed_zc_aes.zip
-tests/fixtures/zip-winzip/gen_own_mixed_zc_aes.zip   ZIP, 2 entries
-  headers   readable
-  entries   2 of 2 entries encrypted; coverage all
-  schemes   mixed
-            zip-crypto:check8  ZipCrypto, check byte 8 bits, CRC-32 (1 entry, 1 key group)
-            zip-winzip:256:ae2  AE-2, AES-256, PBKDF2-HMAC-SHA1 1000, verifier 16 bits, authentication code 80 bits (1 entry, 1 key group)
-  findings  more than one scheme in one archive: zip-crypto, zip-winzip
-            zc.txt: zip-crypto falls without the password to 12 bytes of known plaintext
-  line      $zip$1$, hashcat mode 46100, exact, from zc.txt
-            $zip$2$, hashcat mode 46200, exact, from aes.txt
-```
-
-When the headers are encrypted, the entries cannot be told without the password, and the block says so:
+With encrypted headers, the entries stay hidden without the password, and the block says so:
 
 ```console
 $ archivewolf info tests/fixtures/rar-50/v730_hp_m5.rar
@@ -464,7 +506,7 @@ Attempts are ordered by what they cost for the chance they have. An attempt that
 
 #### What the command writes
 
-The speed of the machine is measured once, in two seconds, and kept in `$XDG_CACHE_HOME/archivewolf` (or `~/.cache/archivewolf`). A run whose searches take half a minute or more and go a quarter faster or slower than that corrects it, so a measurement that was taken while the machine was busy does not stand. The same measurement chooses the kernel: a scalar one that runs anywhere, one for AVX2 and one for AVX-512, of which the fastest on the machine is the one that searches.
+The speed of the machine is measured once, in two seconds, and kept in `$XDG_CACHE_HOME/archivewolf` (or `~/.cache/archivewolf`). A run whose searches take half a minute or more and go a quarter faster or slower than that corrects it, so a measurement taken while the machine was busy does not stand. The same measurement chooses the kernel: a scalar one that runs anywhere, one for AVX2 and one for AVX-512, of which the fastest on the machine is the one that searches.
 
 Beside the files that `-o` and `--state` name, that is the only thing the tool ever writes.
 
@@ -479,7 +521,7 @@ Beside the files that `-o` and `--state` name, that is the only thing the tool e
 
 When several apply, 2 comes before 3 and 3 before 0. Status 1 is returned only when nothing was processed at all: a path that does not exist beside an archive that is processed gives 2. A command line that cannot be parsed exits with the status of the argument parser, which is also 2.
 
-## What it does not do
+### What it does not do
 
 - **Test a password or crack.** It takes no password, no wordlist and no candidates. hashcat does that, with the lines. `attack zip-crypto` prints a password of six bytes or fewer that it works out from keys it has found, and tests none.
 - **Run another program.**
@@ -503,37 +545,20 @@ The tool reads files that may be built to break it.
 - **Memory grows with the headers, not with the archive.** An archive is read by range: its headers, and the data a line needs. The tests analyse archives of several gigabytes under a memory cap of 1 GiB. `attack rar-13` holds its archive in memory, 1 GiB at most. `attack zip-crypto` reads by range too, and its proof and `-o` are one pass in a stream.
 - **What was not read is said.** A RAR archive whose chain of headers breaks off, or with a header that fails its checksum, gets the finding `damaged`, and nothing is claimed of what was not read.
 
-None of this proves that no file can break the tool. [SECURITY.md](SECURITY.md) says how to report one that does.
-
-## Releases
-
-There is no release yet. When a tag `vX.Y.Z` is pushed, `.github/workflows/release.yml` runs the tests, builds the files below and creates a draft release with them. No tag exists, so this list is what is planned:
-
-| File | Built for |
-| --- | --- |
-| `archivewolf-linux-x86_64` | `x86_64-unknown-linux-musl` |
-| `archivewolf-linux-arm64` | `aarch64-unknown-linux-musl` |
-| `archivewolf-macos-arm64` | `aarch64-apple-darwin` |
-| `archivewolf-macos-x86_64` | `x86_64-apple-darwin` |
-| `archivewolf-macos-universal` | The two macOS binaries in one file |
-| `archivewolf-windows-x86_64-msvc.exe` | `x86_64-pc-windows-msvc` |
-| `archivewolf-windows-x86_64-gnu.exe` | `x86_64-pc-windows-gnu` |
-| `archivewolf-windows-arm64-msvc.exe` | `aarch64-pc-windows-msvc` |
-| `SHA256SUMS` | The SHA-256 of every file above |
-| `SHA256SUMS.sigstore.json` | The cosign bundle for `SHA256SUMS`: the signature the workflow made, with its certificate |
-
-Once there is a release, verify the signature of `SHA256SUMS` first, with the tag in the place of `vX.Y.Z`, and then the files against it:
-
-```sh
-cosign verify-blob \
-  --bundle SHA256SUMS.sigstore.json \
-  --certificate-identity https://github.com/StrongWind1/ArchiveWolf/.github/workflows/release.yml@refs/tags/vX.Y.Z \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  SHA256SUMS
-sha256sum --check --ignore-missing SHA256SUMS
-```
+None of this proves that no file can break the tool. Report one that does privately, as [SECURITY.md](SECURITY.md) says, and not in a public issue. A crash or a hang on any file, text from an archive that acts on the terminal, and a file that is written where the tool does not say it writes are all in scope.
 
 ## Development
+
+Commits follow the conventional form, with the scheme ID or the format as scope: `fix(rar-30): ...`, `feat(zip): ...`, `docs: ...`.
+
+```sh
+make hooks        # install the pre-commit hook of .githooks
+make dev          # a debug build
+make check-all    # the gate: rustfmt, clippy, cargo-deny, cargo check, the tests, rustdoc, file hygiene, cargo-machete
+```
+
+<details>
+<summary><strong>Every make target, the tools it needs, and the tests outside the default run</strong></summary>
 
 | Target | Does |
 | --- | --- |
@@ -551,30 +576,39 @@ sha256sum --check --ignore-missing SHA256SUMS
 
 - **Tools.** `make check-all` needs cargo-nextest, cargo-deny, cargo-machete, editorconfig-checker (`ec`), yamllint, actionlint, taplo and markdownlint-cli2.
 - **Lints.** Clippy runs with warnings denied. Its thresholds are in `clippy.toml`: clippy's defaults, except three that are held at what the code needs today.
-- **Tests that run other programs.** Three tests outside the default run compare the tool with `7zz`, `unrar` and `zipinfo`, and fail when the program is missing (`cargo test -- --ignored --list` shows them with the slow ones). One test of `attack rar-13` also has `unrar` open the decrypted copy where it is installed. The tool itself starts no program.
-- **Commits** follow the conventional form, with the scheme ID or the format as scope: `fix(rar-30): ...`, `feat(zip): ...`, `docs: ...`.
+- **Tests that run other programs.** Three tests outside the default run compare the tool with `7zz`, `unrar` and `zipinfo`, and fail when the program is missing. One test of `attack rar-13` also has `unrar` open the decrypted copy where it is installed. The tool itself starts no program.
 
-## Security
+This lists the tests outside the default run, the slow ones with them:
 
-Please report a vulnerability privately, as [SECURITY.md](SECURITY.md) says, and not in a public issue. A crash or a hang on any file, text from an archive that acts on the terminal, and a file that is written where the tool does not say it writes are all in scope.
+```sh
+cargo test -- --ignored --list
+```
+
+</details>
+
+## Credits
+
+- [UnRAR](https://www.rarlab.com/rar_add.htm) by Alexander Roshal: the RAR code follows its source.
+- [bkcrack](https://github.com/kimci86/bkcrack) by Joachim Hotonnier (kimci86), and its Rust port [bkcrack-rs](https://github.com/zachshallbetter/bkcrack-rs) by Zach Shallbetter: the key search of `attack zip-crypto` ports parts of both.
+- The known-plaintext attack on ZIP traditional encryption by Eli Biham and Paul Kocher, which `attack zip-crypto` runs.
+- [zlib](https://zlib.net) by Jean-loup Gailly and Mark Adler, and [Info-ZIP](https://infozip.sourceforge.net/) `zip` 3.0: the packers of `attack zip-crypto` port their Deflate, and are held to streams the real programs wrote.
+- [7-Zip](https://www.7-zip.org/) (`7zz`), UnRAR (`unrar`) and Info-ZIP `zipinfo`: the tests outside the default run compare the tool with them.
 
 ## Related tools
 
-- [IKEWolf](https://github.com/StrongWind1/IKEWolf): IKE/IPsec security scanner with Aggressive Mode PSK hash extraction
-- [NFSWolf](https://github.com/StrongWind1/NFSWolf): NFS security scanner, export escape, and credential escalation
-- [CredWolf](https://github.com/StrongWind1/CredWolf): Active Directory credential validation over NTLM and Kerberos
-- [KerbWolf](https://github.com/StrongWind1/KerbWolf): Kerberos roasting and hash extraction toolkit
-- [NTDSWolf](https://github.com/StrongWind1/NTDSWolf): offline NTDS.dit parser and credential extractor
-- [PassWolf](https://github.com/StrongWind1/PassWolf): AD password change, reset, and policy read over SAMR, Netlogon, LSA, Kerberos, and LDAP
-- [AD-SecretGen](https://github.com/StrongWind1/AD-SecretGen): derive AD password hashes and Kerberos keys from a cleartext password
+- [**office-password-toolkit**](https://github.com/StrongWind1/office-password-toolkit): Detect, extract, bypass, and decrypt passwords in Microsoft Office and OpenDocument files
+
+All tools: [strongwind.dev](https://strongwind.dev)
 
 ## Disclaimer
 
-ArchiveWolf is a penetration-testing and security-research tool. Operating it against systems or data without explicit written authorization is illegal in most jurisdictions. You alone are responsible for how you use it.
+ArchiveWolf is for authorized security testing, research, and education. Use it only against systems and data you own or have written permission to test. You are responsible for how you use it.
 
-## Licence
+## License
 
-`Apache-2.0 AND UnRAR AND Zlib AND Info-ZIP`. All four licences apply to the crate.
+[Apache License 2.0](LICENSE)
+
+The crate's licence is `Apache-2.0 AND UnRAR AND Zlib AND Info-ZIP`: it carries third-party code under three more licences, and all four apply to it.
 
 | Part | Licence | Files that carry the notice |
 | --- | --- | --- |
