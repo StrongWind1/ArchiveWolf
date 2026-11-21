@@ -56,6 +56,20 @@ mod tests {
         Command::cargo_bin("archivewolf").unwrap().args(["attack", "zip-crypto"]).args(args).env("XDG_CACHE_HOME", cache()).env_remove("RUST_LOG").output().unwrap()
     }
 
+    /// The command on a machine that is said to search a hundred candidates a second, under a
+    /// budget of half an hour.
+    ///
+    /// A budget is held against two things: what an attempt is estimated to take, which follows
+    /// from the speed the machine is said to have, and the time that has passed, which follows
+    /// from the speed it has. At a hundred candidates a second a window of a known file is
+    /// estimated at a minute and a half and a signature at more than an hour: half an hour
+    /// leaves every signature out, and does not run out between two windows on a machine that
+    /// is many times slower than the one the test was written on.
+    fn attack_windows(args: &[&str]) -> Output {
+        let cache = cache_of("zip-crypto-test-cache-windows", archivewolf_zip_crypto::Kernel::best(), std::thread::available_parallelism().map_or(1, std::num::NonZero::get), 100.0);
+        Command::cargo_bin("archivewolf").unwrap().args(["attack", "zip-crypto", "--budget", "30m"]).args(args).env("XDG_CACHE_HOME", cache).env_remove("RUST_LOG").output().unwrap()
+    }
+
     /// The command on four threads of a machine that is said to search a hundred candidates a
     /// second. A state is written every ten seconds of search at the measured speed, which is
     /// every thousand candidates here: a search of some thousand is kept in several stretches.
@@ -182,18 +196,20 @@ mod tests {
         plain[600] ^= 1;
         std::fs::create_dir_all(dir.path().join("old")).unwrap();
         drop(write(&dir, "old/spiral.svg", &plain));
-        let output = attack(&[SECRETS, "--known", dir.path().to_str().unwrap(), "--budget", "15s"]);
+        let output = attack_windows(&[SECRETS, "--known", dir.path().to_str().unwrap()]);
         let said = String::from_utf8_lossy(&output.stderr);
         assert_eq!(output.status.code(), Some(3), "{said}");
         assert!(output.stdout.is_empty());
         assert_eq!(said.matches("spiral.svg: no keys. All ").count(), 2, "{said}");
         assert!(said.contains("window of the similar file "), "{said}");
+        // the attempts on the signature of the file take longer than the budget: they are named and not started
+        assert!(said.contains("not started. It takes about ") && said.contains("--budget "), "{said}");
 
         // the same file with its end as it is in the archive: the window at the end gives the keys
         let mut plain = stored(SECRETS, "spiral.svg", "W4sF0rgotten");
         plain[100] ^= 1;
         drop(write(&dir, "old/spiral.svg", &plain));
-        let output = attack(&[SECRETS, "--known", dir.path().to_str().unwrap(), "--budget", "15s"]);
+        let output = attack_windows(&[SECRETS, "--known", dir.path().to_str().unwrap()]);
         assert_eq!((output.status.code(), lines(&output.stdout)), (Some(0), KEYS.map(str::to_owned).to_vec()), "{}", String::from_utf8_lossy(&output.stderr));
     }
 

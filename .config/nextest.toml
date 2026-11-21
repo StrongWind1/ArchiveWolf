@@ -49,6 +49,14 @@ fail-fast = false
 filter = 'test(/rar_13_.*key_recovered/)'
 slow-timeout = { period = "1800s", terminate-after = 1 }
 
+# The searches of attack zip-crypto in the default run take every CPU, and several run at
+# once. On a hosted runner two of them passed their limit: one of the search itself (60s,
+# 22s on a development machine with 16 CPUs) and one of the command (120s, 29s there); the
+# others took up to seven times what they take there.
+[[profile.ci.overrides]]
+filter = 'binary(zip_crypto_attack_test) | test(/attack::zip_crypto::/)'
+slow-timeout = { period = "600s", terminate-after = 1 }
+
 # Relative to the store directory of the profile: target/nextest/ci/junit.xml
 [profile.ci.junit]
 path = "junit.xml"
