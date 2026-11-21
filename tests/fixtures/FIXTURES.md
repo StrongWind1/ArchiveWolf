@@ -19,7 +19,7 @@ This file names the fixtures whose origin or purpose is recorded. The directorie
 ## Directories
 
 | Directory | Holds | `info` | `hash` |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `zip-crypto/` | ZIP traditional encryption (ZipCrypto) | scheme `zip-crypto`, finding `zip-crypto falls without the password to 12 bytes of known plaintext` | `$zip$1$`, mode 46100 |
 | `zip-winzip/` | ZIP with WinZip AES | scheme `zip-winzip`, with the key size and `ae1` or `ae2` in the variant | `$zip$2$`, mode 46200 |
 | `zip-pkware/` | ZIP with PKWARE strong encryption, AES and a password | scheme `zip-pkware`, variants `zip-pkware:data:aes128:password` to `aes256` | `$zip$3$`, mode 46300, 46310 or 46320 by key size |
@@ -40,7 +40,7 @@ This file names the fixtures whose origin or purpose is recorded. The directorie
 ### `zip-crypto/`, made by hand
 
 | Fixture | Password | Created with | `info` | `hash` |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `zipcrypto.zip` | `testpass` | `zip -e` | `1 of 1 entry encrypted; coverage all` | `$zip$1$`, exact, with the note that a stored entry alone is confirmed by 40 bits |
 | `zipcrypto_deflate.zip` | `deflpass` | `zip -e` | `2 of 2 entries encrypted` | `$zip$1$`, exact |
 | `zipcrypto_stored.zip` | `bktest` | `zip -e -0` | `3 of 3 entries encrypted` | `$zip$1$`, exact, from `plain.txt` |
@@ -60,7 +60,7 @@ This file names the fixtures whose origin or purpose is recorded. The directorie
 Passwords are in `passwords.json`. `infozip_*` were written by Info-ZIP `zip 3.0`, `7z_*` by `7zz a -tzip`, and `own_*` and `ses_*` by the generator of the hashcat test modules (`tools/test_modules/lib/zip_traditional.py`, `zip_strong.py`), for the cases neither tool produces. Every `ses_*` archive was read back with `7zz t`.
 
 | Directory | Fixtures | What they cover | `hash` |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `zip-crypto/` | `gen_infozip_{store,deflate,bzip2,stream,zip64,tiny,store_multi}.zip` | Info-ZIP: stored, deflate, bzip2, data descriptor from a pipe, forced ZIP64, a two-byte file, two stored entries | `$zip$1$`: exact, but structural for `bzip2` and weak (24 bits) for `tiny` |
 | `zip-crypto/` | `gen_7z_zipcrypto_{copy,deflate,deflate64,bzip2,lzma,ppmd,xz}.zip` | 7-Zip: every compression method it writes with traditional encryption | `$zip$1$`: exact for `copy` and `deflate`, structural for `bzip2` and `xz`, weak (8 bits) for `deflate64`, `lzma` and `ppmd`, for which hashcat has no decoder |
 | `zip-crypto/` | `gen_7z_zipcrypto_pw_{long70,space,special}.zip` | 70-character password, a space, `:*$` | `$zip$1$`, exact |
@@ -83,7 +83,7 @@ Passwords are in `passwords.json`. `infozip_*` were written by Info-ZIP `zip 3.0
 The archives of `zip-crypto/` in the table below: all but one have encryption headers that were not filled from a generator nobody can predict, and `gen_sharpziplib_net9.zip` is the control. Each was written by the real program or library, on 2026-11-20 or 2026-11-21, and was opened with its password by Python's `zipfile`. The tests of `src/attack/zip_crypto/seed/` hold the twelve header bytes of every entry of each, with the seed and the keys below. For every one of them `info` says `zip-crypto:check8` with all entries encrypted, and `hash` gives one `$zip$1$` line, exact.
 
 | Fixture | Password | Created with | What its headers give |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `gen_infozip_six.zip` | `six-headers` | `zip -e -P six-headers` of Info-ZIP 3.0 on Linux with glibc 2.41, on six text files of 6 to 80 bytes: two stored, four deflated | The seed of `rand()`, 1,795,889,087: the time the archive was written at, 1,795,212,702, exclusive-or the process number 774,689. The keys after the password are `b4fd7fc8 9cc4f2bc 92c95100` |
 | `gen_infozip_four.zip` | `four-headers` | The same in the same second, on four text files of 6 to 80 bytes: two stored, two deflated | The seed 1,795,889,082: the same time, exclusive-or the process number 774,692. Keys `9309413d 76dafb18 09f0cd24` |
 | `gen_infozip_musl.zip` | `musl-headers` | `zip -e -P musl-headers` of Info-ZIP 3.0, built from `zip30.tar.gz` with `musl-gcc` against musl 1.2.5, on six text files of 6 to 80 bytes: one stored, five deflated. The build sets the flags by hand (`-DUNIX -DUIDGID_NOT_16BIT -DLARGE_FILE_SUPPORT -DUNICODE_SUPPORT -DHAVE_DIRENT_H -DHAVE_TERMIOS_H -std=gnu89`), because the probes of `unix/configure` fail under GCC 14 | The seed of the `rand()` of musl, 1,797,846,278: the time the archive was written at, exclusive-or the number of its process. Keys `c7de90d8 78871436 53aceb37` |
@@ -112,7 +112,7 @@ The archives of `zip-crypto/` in the table below: all but one have encryption he
 ### Other ZIP fixtures
 
 | Fixture | Password | Created with | `info` | `hash` |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `zip-winzip/winzip_aes256.zip` | `aespass` | `7zz -mem=AES256` | `zip-winzip:256:ae2  AE-2, AES-256` | `$zip$2$`, exact |
 | `zip-winzip/winzip_aes128.zip` | `aes128pw` | `7zz -mem=AES128` | `zip-winzip:128:ae2  AE-2, AES-128` | `$zip$2$`, exact |
 | `pseudo/pseudo.zip` | none | `zip` and an edit of the flag | `none of 1 entry encrypted, 1 pseudo-encrypted; coverage none` | no line |
@@ -127,7 +127,7 @@ The archives of `zip-crypto/` in the table below: all but one have encryption he
 ### RAR 1.4 comments (`unencrypted/`)
 
 | Fixture | What it is | `info` |
-|---|---|---|
+| --- | --- | --- |
 | `rar14_with_comment.rar` | Synthetic. The comment bytes are plain text, as the format stores them without `MHD_PACK_COMMENT` | `none of 1 entry encrypted`, and the row `comment   ArchiveWolf RAR 1.4 test comment` |
 | `rar14_packed_comment.rar` | From the `rars` test corpus. The comment is packed (`MHD_PACK_COMMENT`, fixed key `{0, 7, 77}` and Unpack15) | `none of 1 entry encrypted`, and the row `comment   This is the archive comment.` |
 
@@ -136,7 +136,7 @@ The archives of `zip-crypto/` in the table below: all but one have encryption he
 `info` reports the scheme `rar-13`, the finding ``rar-13 falls without the password: `attack rar-13` searches its 2^23 keys``, `hash none` and the reason `no-mode`. `hash` writes no line. `attack rar-13 FIXTURE -o FILE` prints `KEY RECOVERED: RAR 1.3 key = 73 1f 3d` for each of them and writes the decrypted copy to `FILE`.
 
 | Fixture | Entries | Time of `attack rar-13` on 16 cores | Tested in |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `rar14-password-stored.rar` | One stored entry of 87 bytes | under a second | the default test run |
 | `edge_rars_STOREPWD.RAR` | One stored entry of 27 bytes | under a second | the default test run |
 | `rar14-password-compressed.rar` | One compressed entry, 83 bytes packed | under a second | the default test run |
@@ -146,7 +146,7 @@ The archives of `zip-crypto/` in the table below: all but one have encryption he
 ### `rar-15/` and `rar-20/` (password `password`)
 
 | Fixture | From | `hash` |
-|---|---|---|
+| --- | --- | --- |
 | `rar-15/rar15-password-stored.rar`, `rar-15/rar15-password-compressed.rar` | junrar test suite | `$rar$15$`, exact |
 | `rar-20/rar20-password-stored.rar`, `rar-20/rar20-password-compressed.rar` | junrar test suite | `$rar$20$`, exact |
 | `rar-15/rars_service_block_stored.rar` | Written by the `rars` tool, which puts a service block (`RARS`, `LONG_BLOCK`) before the file header; the walker has to skip its data | `$rar$15$`, exact, method field `30` |
@@ -161,7 +161,7 @@ The archives of `zip-crypto/` in the table below: all but one have encryption he
 The files named `vNNN_*` were written by the RAR binaries of versions 3.00, 4.20, 5.00, 5.21, 7.00 and 7.30 beta 2, with the password `gutenberg`. The name gives the version and the switches: `p` for `-p` (entries encrypted), `hp` for `-hp` (headers encrypted), `m0` to `m5` for the compression, `ma4` for the RAR 4 format written by RAR 5.00, and `sfx`, `solid`, `blake2sp` (`-htb`) and `qo` (`-qo+`).
 
 | Fixtures | `info` | `hash` |
-|---|---|---|
+| --- | --- | --- |
 | `rar-30/v*_p_*` | `rar-30:data  AES-128, SHA-1 2^18, CRC-32` | `$rar$30$*1*`, exact |
 | `rar-30/v*_hp_*` | `headers   encrypted: names and sizes hidden`, `rar-30:headers  AES-128, SHA-1 2^18, structure` | `$rar$30$*0*`, structural, from the headers |
 | `rar-50/v*_p_*` | `rar-50:data:check:keyed  AES-256, PBKDF2-HMAC-SHA256 2^15, check value 64 bits`, with `keyed CRC-32` or `keyed BLAKE2sp` | `$rar$50$*0*`, exact |
@@ -173,7 +173,7 @@ The files named `vNNN_*` were written by the RAR binaries of versions 3.00, 4.20
 Made by `rar`, then the check value (and for `crc` and `b2` the flag of the keyed checksum) removed from the header; `unrar t` accepts each.
 
 | Fixtures | What they are | `hash` |
-|---|---|---|
+| --- | --- | --- |
 | `nocheck_st_{crc,crcmac,b2,b2mac}.rar` | A stored entry | `$rar$50$*1*`, exact, with check type 0, 1, 2 and 3 |
 | `nocheck_m3_{crc,crcmac,b2,b2mac}.rar`, `nocheck_m5_exe_crcmac.rar` | A compressed entry; the m5 one is an executable with E8 filters | `$rar$50$*1*`, exact, with check type 0, 1, 2 and 3 |
 | `nocheck_hp_m0.rar`, `nocheck_hp_m3.rar` | Encrypted headers without a check value. `info` says `rar-50:headers:nocheck  AES-256, PBKDF2-HMAC-SHA256 2^15, structure` | `$rar$50$*1*`, structural, from the headers, with check type 4 |
@@ -182,7 +182,7 @@ Made by `rar`, then the check value (and for `crc` and `b2` the flag of the keye
 ### Other encrypted RAR fixtures
 
 | Fixture | Password | What it is | `hash` |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `rar-30/rar3-nonascii-password.rar` | `пароль密码ü` | Encrypted headers (`-hp`) | `$rar$30$*0*`, structural, from the headers |
 | `rar-30/bad-crc-enc-headers.rar` | not known | Encrypted headers (`-hp`) | `$rar$30$*0*`, structural, from the headers |
 | `rar-30/rars_rar4_mixed_visible_names_password.rar` | `known-pass` | `2 of 3 entries encrypted; coverage some` | `$rar$30$*1*`, exact |
@@ -195,7 +195,7 @@ Made by `rar`, then the check value (and for `crc` and `b2` the flag of the keye
 ### Two passwords in one archive
 
 | Fixture | Format | Members | `hash` |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `rar-30/ttzip-core_test_read_format_rar4_encrypted.rar` | RAR 4.x | `b.txt` password `password`, `d.txt` password `password2`, `a.txt` and `c.txt` not encrypted | one `$rar$30$*1*` line, from `b.txt`. Two with `--all`, one for each password. `info` counts `2 key groups` |
 | `rar-50/ttzip-core_test_read_format_rar5_encrypted.rar` | RAR 5.x | Same layout and passwords | one `$rar$50$*0*` line, from `b.txt`. Two with `--all` |
 
@@ -214,7 +214,7 @@ Made by `rar`, then the check value (and for `crc` and `b2` the flag of the keye
 `method` is the column of `info --entries`. A hexadecimal number in it is the identifier of a filter.
 
 | Fixture | `method` | Password | Created with | `hash` |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `7z_stored.7z` | `stored` | `7zpass` | `7zz -m0=Copy` | `$7z$*`, exact |
 | `lzma1.7z` | `LZMA` | `lzma1pw` | `7zz -m0=LZMA` | `$7z$*`, exact |
 | `7z_lzma2.7z` | `LZMA2` | `7zlzma` | `7zz -m0=LZMA2` | `$7z$*`, exact |
@@ -242,7 +242,7 @@ Made by `rar`, then the check value (and for `crc` and `b2` the flag of the keye
 `info` reports `headers   encrypted: names and sizes hidden` and no entries. The line is `$7z$*`, exact, from the headers.
 
 | Fixture | Password | Created with |
-|---|---|---|
+| --- | --- | --- |
 | `headers.7z` | `7zhdr` | `7zz -mhe=on` |
 | `7z_hdr_lzma2.7z` | `hdrpw` | `7zz -mhe=on -m0=LZMA2` |
 | `7z_hdr_bzip2.7z` | `hdrbz2` | `7zz -mhe=on -m0=BZip2` |
@@ -259,7 +259,7 @@ Passwords are in `passwords.json`. `gen_7z_*` were written by 7-Zip 26.02 (`7zz 
 Each gives one `$7z$*` line. It is exact for all of them but the five `gen_py7zr_*_hdr.7z`, where it is structural.
 
 | Fixtures | What they cover |
-|---|---|
+| --- | --- |
 | `gen_7z_{copy,lzma,lzma2,ppmd,bzip2,deflate,deflate64}.7z` | One packer each, 40 KB of text |
 | `gen_7z_hdr_lzma2.7z`, `gen_7z_hdr_solid.7z` | Encrypted header: stored, and packed with LZMA |
 | `gen_7z_exe_{bcj,arm,armt,arm64,ppc,sparc,ia64,riscv,delta4,swap2,swap4}.7z` | Every filter 7-Zip has, in front of LZMA2, on a real x86-64 program |
@@ -280,7 +280,7 @@ Each gives one `$7z$*` line. It is exact for all of them but the five `gen_py7zr
 ### Synthetic, without a line
 
 | Fixture | What it is | `info` and `hash` |
-|---|---|---|
+| --- | --- | --- |
 | `rawkey.7z` | The key is the password itself | `no-mode: its key is the password itself, with no key derivation, which 7-Zip reads and never writes and hashcat does not test` |
 | `unknown_coder.7z`, `tier5_padded.7z` | Encrypted before it is packed, by a coder nothing knows | `not-expressible: one of its streams is not encrypted, or is encrypted before it is packed` |
 
@@ -289,7 +289,7 @@ Each gives one `$7z$*` line. It is exact for all of them but the five `gen_py7zr
 ### Passwords not known, or from other collections
 
 | Fixture | Source | Password |
-|---|---|---|
+| --- | --- | --- |
 | `flag.7z` | bkwhack | not known (a CTF challenge) |
 | `aes_small_test.7z` | sevenz-rust2 | `iBlm8NTigvru0Jr0` |
 | `encrypted.7z` | sevenz-rust2 | `sevenz-rust` |
@@ -301,7 +301,7 @@ Each gives one `$7z$*` line, exact.
 For each, `info` reports `coverage none` and `hash none: nothing is encrypted`.
 
 | Fixture | Compressor | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `plain.7z` | LZMA2 | Basic unencrypted |
 | `7za433_7zip_lzma2_bcj2.7z` | LZMA2 + BCJ2 | 4-stream coder |
 | `copy.7z` | Copy (stored) | No compression |
@@ -324,7 +324,7 @@ For each, `info` reports `coverage none` and `hash none: nothing is encrypted`.
 ## Regression fixtures of 2026-11-19 (`regress/zip/`, `regress/rar/`, `regress/7z/`)
 
 | Fixture | Password | What it is | `hash` |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `regress/zip/zip64_offset_only.zip` | `pw` | A ZIP64 extra field that holds the offset alone | `$zip$1$`, exact |
 | `regress/zip/aes_directory_entry.zip` | `7z-aes256_deflate` | A directory entry flagged with WinZip AES in front of an entry with data | `$zip$2$`, exact, from the entry with data |
 | `regress/7z/weak_first.7z` | `weakpw` | Two folders: a file of one byte, then one of 86 bytes | `$7z$*`, exact, from the second folder. With `--all` the first gives a weak line |

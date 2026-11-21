@@ -8,7 +8,7 @@ Analyser and hashcat hash converter for encrypted ZIP, RAR and 7-Zip archives.
 ArchiveWolf answers three questions about an encrypted archive, with one command for each:
 
 | Command | Question | Answer |
-|---|---|---|
+| --- | --- | --- |
 | [`info`](#info) | What is encrypted, and how? | The scheme and variant of every encrypted entry, with its parameters, and findings such as pseudo-encryption or a scheme that is weak |
 | [`hash`](#hash) | What does hashcat need to test passwords against it? | A hash line for each scheme in the archive, for hashcat modes 46100 to 46900 |
 | [`attack rar-13`](#attack-rar-13), [`attack zip-crypto`](#attack-zip-crypto) | Can it be opened without the password? | For the two schemes that fall without it: the key of a RAR 1.3 archive, and the three keys of a ZIP archive under traditional encryption |
@@ -39,7 +39,7 @@ The tool takes no password and tests none, starts no other program and unpacks n
 ## Supported formats and schemes
 
 | Format | Scheme | What it is | Hash line | hashcat mode |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | ZIP | `zip-crypto` | ZIP traditional encryption (ZipCrypto) | `$zip$1$` | 46100 |
 | ZIP | `zip-winzip` | WinZip AES, AE-1 and AE-2, with 128, 192 and 256 bits | `$zip$2$` | 46200 |
 | ZIP | `zip-pkware` | PKWARE strong encryption with a password and AES-128, 192 or 256 | `$zip$3$` | 46300, 46310, 46320, by key size |
@@ -169,7 +169,7 @@ tests/fixtures/zip-crypto/test05.zip   ZIP, 2 entries
 #### The rows of a block
 
 | Row | Says |
-|---|---|
+| --- | --- |
 | `headers` | Whether the headers are `readable` or `encrypted`. With encrypted headers, names and sizes are hidden |
 | `writer` | ZIP only: the family of the program that wrote the `zip-crypto` entries, when the archive shows it |
 | `entries` | How many entries are encrypted, and the coverage: `all`, `some` or `none` of what the archive lists, or `unknown` behind encrypted headers |
@@ -182,7 +182,7 @@ tests/fixtures/zip-crypto/test05.zip   ZIP, 2 entries
 An entry is in one of four states:
 
 | State | When |
-|---|---|
+| --- | --- |
 | `plain` | The format does not mark the entry as encrypted |
 | `encrypted` | The format marks it, and nothing shows otherwise |
 | `pseudo-encrypted` | ZIP only. The entry is marked, and its data as it stands unpacks to the CRC-32 the archive stores |
@@ -193,7 +193,7 @@ An entry is in one of four states:
 Each finding has a fixed code, the entries it concerns and a sentence.
 
 | Code | Meaning |
-|---|---|
+| --- | --- |
 | `pseudo-encryption` | Entries are marked encrypted and are not |
 | `mixed-schemes` | More than one scheme in one archive |
 | `partial` | Some entries are encrypted and some are not |
@@ -236,7 +236,7 @@ archivewolf: 3 hash lines: 1 of mode 46100, 1 of mode 46800, 1 of mode 46900
 The first and the last line of that output are on standard error. The three hash lines are short because the entries are small: a line carries the encrypted data a password is tested against, and can be more than a megabyte long.
 
 | Option | Effect |
-|---|---|
+| --- | --- |
 | none | One line for each scheme in an archive, from the entry whose line proves most and, among those, costs a cracker least |
 | `--all` | A line for every encrypted entry or folder that can have one. It is for archives whose entries do not share one password |
 | `--mode MODE` | Only the lines of that hashcat mode. A number that is no mode `hash` writes lines for is refused, with the modes there are |
@@ -259,7 +259,7 @@ A hashcat built from the fork then takes the file with the same mode, for exampl
 `info` and the JSON of `hash` say what a line proves:
 
 | Proof class | The password is confirmed by |
-|---|---|
+| --- | --- |
 | `exact` | A checksum of the unpacked data, an authentication code over the data, or a 64-bit check value |
 | `structural` | The stream unpacking to its size without error, or the decrypted bytes parsing as a header |
 | `weak` | Check bytes, a verifier, or a checksum over fewer than four bytes, and no data beyond them |
@@ -287,7 +287,7 @@ archivewolf: no hash lines
 Every case has one of these reasons, in the same words every time:
 
 | Reason | Meaning |
-|---|---|
+| --- | --- |
 | `no-mode` | No hashcat mode exists for the variant |
 | `no-password` | No password opens the entry: it is encrypted to certificates |
 | `unknown-scheme` | The encryption identifier is not known |
@@ -383,7 +383,7 @@ The last three lines are standard output: the keys, and the two lines of hashcat
 What the command starts from by itself:
 
 | Source | What it gives |
-|---|---|
+| --- | --- |
 | The check bytes | One or two known bytes at the end of the encryption header of every entry |
 | The packing method | The head of a Deflate stream that did not pack, and the start of a bzip2 or XZ stream |
 | The name of a stored entry | The signature of the type the name says, from a table of 53 types that is held against real files of each |
@@ -394,7 +394,7 @@ What the command starts from by itself:
 Twelve bytes stand in front of every entry and are encrypted with it: an encryption header of ten or eleven bytes that are meant to be random, and the check bytes behind them. For the writers below they are not random, and the archive gives its keys with no known byte of any file:
 
 | Writer | Where its header bytes come from | The archive needs | Time |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Info-ZIP `zip`: the `zip` command of Linux and of macOS, and `zip.exe` on Windows as Info-ZIP, GnuWin32, MinGW, Cygwin and MSYS2 build it | The `rand()` of its C library, seeded once with the time: glibc, which Cygwin and MSYS2 share, macOS, musl, the runtime of Windows and that of Borland are searched | 4 entries | Seconds, and half a minute with exactly four |
 | WinRAR 2.90 to 3.20 and 4.20 to 7.23, for a ZIP archive under what it calls ZIP legacy encryption | The header of Info-ZIP, whose code WinRAR carries: the `rand()` of Borland up to 3.20 and that of Windows from 4.20 on, seeded once with the time and the process number | 4 entries | Seconds |
 | minizip, and the many programs that are built on it | The same generator and another seed. It leaves no mark of itself, so a writer that is not known is asked the same question | 4 entries | Seconds |
@@ -423,7 +423,7 @@ $zip$4$*1*b4fd7fc8*9cc4f2bc*92c95100$/zip$
 #### Giving it what you know
 
 | Option | Takes |
-|---|---|
+| --- | --- |
 | `--known <PATH>` | A file, a folder or an archive that may hold content of the archive. What fits is found by size and CRC-32, also a file that is only similar to an entry |
 | `--bytes <ENTRY[@POS]=HEX>` | Known bytes of an entry in hex, at a position or anywhere. A position below zero counts from the end |
 | `--text <ENTRY[@POS]=STR>`, `--text16` | The same as text, or as text in UTF-16 |
@@ -440,7 +440,7 @@ A file that the archive holds packed is of use only when it is packed again as t
 Attempts are ordered by what they cost for the chance they have. An attempt that is measured to take longer than what is left of the budget is not started.
 
 | Option | Effect |
-|---|---|
+| --- | --- |
 | `--plan` | Print the plan and stop |
 | `--entry <PATTERN>` | Only attempts on these entries |
 | `--only <PATH,...>` | Only these paths: `run`, `short-run`, `header`, `header-once` |
@@ -471,7 +471,7 @@ Beside the files that `-o` and `--state` name, that is the only thing the tool e
 ### Exit status
 
 | Status | Meaning |
-|---|---|
+| --- | --- |
 | 0 | Every input was processed, and an attack that was asked for succeeded |
 | 1 | Nothing was processed: no archive was found in the given paths, the result could not be written, or an attack could not start |
 | 2 | At least one input could not be processed: a path cannot be read, an archive does not parse, or it hit an internal error. The others are still reported |
@@ -510,7 +510,7 @@ None of this proves that no file can break the tool. [SECURITY.md](SECURITY.md) 
 There is no release yet. When a tag `vX.Y.Z` is pushed, `.github/workflows/release.yml` runs the tests, builds the files below and creates a draft release with them. No tag exists, so this list is what is planned:
 
 | File | Built for |
-|---|---|
+| --- | --- |
 | `archivewolf-linux-x86_64` | `x86_64-unknown-linux-musl` |
 | `archivewolf-linux-arm64` | `aarch64-unknown-linux-musl` |
 | `archivewolf-macos-arm64` | `aarch64-apple-darwin` |
@@ -536,7 +536,7 @@ sha256sum --check --ignore-missing SHA256SUMS
 ## Development
 
 | Target | Does |
-|---|---|
+| --- | --- |
 | `make dev` | A debug build |
 | `make fix` | rustfmt, and the fixes clippy can apply |
 | `make check` | `cargo check` of every target |
@@ -577,7 +577,7 @@ ArchiveWolf is a penetration-testing and security-research tool. Operating it ag
 `Apache-2.0 AND UnRAR AND Zlib AND Info-ZIP`. All four licences apply to the crate.
 
 | Part | Licence | Files that carry the notice |
-|---|---|---|
+| --- | --- | --- |
 | ArchiveWolf | [Apache License 2.0](LICENSE) | Everything that is not named below |
 | RAR code that follows the UnRAR source by Alexander Roshal | UnRAR licence, [LICENSE-UNRAR.txt](LICENSE-UNRAR.txt) | `src/attack/rar_13/crack.rs` and, under `src/formats/rar/`, `encryption.rs`, `headers.rs`, `rar1.rs`, `rar4.rs`, `rar5.rs` and `unpack15.rs` |
 | The key search of `attack zip-crypto`, in `crates/zip-crypto/`: ports of parts of [bkcrack-rs](https://github.com/zachshallbetter/bkcrack-rs) by Zach Shallbetter, itself a port to Rust of [bkcrack](https://github.com/kimci86/bkcrack) by Joachim Hotonnier, and of bkcrack itself | zlib licence, [LICENSE-BKCRACK.txt](LICENSE-BKCRACK.txt) | `tables.rs`, `reduce.rs`, `kernel/port.rs` and `password.rs` |
