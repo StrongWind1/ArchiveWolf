@@ -3,7 +3,7 @@
 `src/formats/zip/known/types.json` says what a file of a type starts and ends with. The first rule of that table is that every row is backed by real files of its type from more than one writer, and that a row the files do not bear out is not in the table. This directory is that backing.
 
 | File | Holds |
-|---|---|
+| --- | --- |
 | `samples.json` | One object for each real file: its type, who wrote it, where it is from, its size, and its first and last bytes in hex. No whole file is kept |
 | `gather.py` | The script that made `samples.json` |
 | `pending.json` | Rows written from the documented formats that are not in the table, because files of two writers were not at hand |

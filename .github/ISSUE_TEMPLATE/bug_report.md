@@ -19,7 +19,7 @@ archivewolf ...
 **Output**
 Paste the full output (use `-vvv` for trace-level detail where supported):
 
-```
+```text
 ...
 ```
 
@@ -27,6 +27,8 @@ Paste the full output (use `-vvv` for trace-level detail where supported):
 What you expected to happen.
 
 **Environment**
+Your setup:
+
 - OS: [e.g. Kali 2025.1, Ubuntu 24.04, macOS 14]
 - ArchiveWolf version: [`archivewolf --version`]
 - Install method: [e.g. release binary, cargo install, built from source]

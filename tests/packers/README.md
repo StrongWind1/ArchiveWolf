@@ -5,7 +5,7 @@
 ## What was recorded
 
 | File | Program | Cases |
-|---|---|---|
+| --- | --- | --- |
 | `zlib.json` | zlib 1.3.2, as the CPython 3.15.2 of `uv` links it | 27 inputs, each at levels 1 to 9, memory levels 1 to 9 and the five strategies: 10,935 |
 | `infozip.json` | Zip 3.0 (July 5th 2008) by Info-ZIP, `/usr/bin/zip` of the Debian 13 package `zip` 3.0-15+deb13u1 on amd64, which is built with its own Deflate and not with zlib | 27 inputs, each at `-1` to `-9`: 243 |
 

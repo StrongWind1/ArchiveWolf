@@ -5,7 +5,7 @@ The cipher of ZIP traditional encryption (`zip-crypto`) and the key search of th
 It is the part of `archivewolf attack zip-crypto` that has to be fast, and it knows nothing of archives. It is a crate of its own because a vector kernel is entered through a call the compiler cannot check, which ArchiveWolf itself forbids, and so that it is built with optimisation in every profile.
 
 | Kernel | What it is |
-|---|---|
+| --- | --- |
 | `reference` | The search of bkcrack as it is written there, one list at a time. The others are tested against it |
 | `scalar` | The same search as flat loops over arrays, with one table that gives the byte that fits. Runs on every processor |
 | `avx2` | The flat loops eight lists at a time, for a processor with AVX2 |
